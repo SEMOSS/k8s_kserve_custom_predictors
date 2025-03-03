@@ -61,3 +61,6 @@ htmlcov/
 *.log
 .env.local
 *.db
+
+dir-strut.ps1
+directory_structure.txt

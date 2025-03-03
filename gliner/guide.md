@@ -16,3 +16,4 @@ docker build --build-arg MODE=gpu -t gliner-predictor:gpu .
 ```bash
 docker run -p 8080:8080 gliner-predictor:cpu
 ```
+
