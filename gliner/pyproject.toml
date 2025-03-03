@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "gliner-kserve-predictor"
+version = "0.1.0"
+description = "Custom KServe predictor for GLiNER model"
+authors = ["Ryan Weiler <rweiler@deloitte.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+kserve = "0.14.1"
+gliner = "0.2.16"
+fastapi = "^0.115.11"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.3.1"
+black = "^23.3.0"
+isort = "^5.12.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
