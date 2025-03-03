@@ -36,7 +36,7 @@ COPY model.py /app/
 
 ENV MODEL_NAME=gliner-multi-v2-1
 ENV MODEL_ID=urchade/gliner_multi-v2.1
-
+ENV PYTHONUNBUFFERED=1
 RUN mkdir -p /mnt/models
 
 EXPOSE 8080
