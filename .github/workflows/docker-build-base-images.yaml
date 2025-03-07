@@ -67,13 +67,23 @@ jobs:
             fi
           fi
           
-          # Create JSON matrix
+          # Create JSON matrix using proper JSON formatting
           if [ ${#BASE_IMAGES[@]} -eq 0 ]; then
-            # If no changes detected, create a dummy value to avoid workflow failure
+            # If no changes detected, create an empty array
             echo "matrix={\"base_image\":[]}" >> $GITHUB_OUTPUT
             echo "No base image directories with changes detected."
           else
-            echo "matrix={\"base_image\":[\"$(IFS="\",\""; echo "${BASE_IMAGES[*]}")\"]}" >> $GITHUB_OUTPUT
+            # Generate a properly formatted JSON string for the matrix
+            JSON_ARRAY="["
+            for i in "${!BASE_IMAGES[@]}"; do
+              if [ $i -gt 0 ]; then
+                JSON_ARRAY+=","
+              fi
+              JSON_ARRAY+="\"${BASE_IMAGES[$i]}\""
+            done
+            JSON_ARRAY+="]"
+            
+            echo "matrix={\"base_image\":$JSON_ARRAY}" >> $GITHUB_OUTPUT
             echo "Detected changes in base image directories: ${BASE_IMAGES[@]}"
           fi
 
@@ -117,12 +127,12 @@ jobs:
           echo "Building base Docker image for $BASE_TYPE"
           
           # Define image names with timestamps
-          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/base/$BASE_TYPE:${{ env.date }}"
-          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/base/$BASE_TYPE:${{ env.date }}"
+          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-base/$BASE_TYPE:${{ env.date }}"
+          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-base/$BASE_TYPE:${{ env.date }}"
           
           # Also create latest tags
-          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/base/$BASE_TYPE:latest"
-          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/base/$BASE_TYPE:latest"
+          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-base/$BASE_TYPE:latest"
+          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-base/$BASE_TYPE:latest"
           
           # Build the Docker image
           docker build -t $PRIVATE_IMAGE -f Dockerfile.$BASE_TYPE .
