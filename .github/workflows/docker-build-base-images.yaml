@@ -118,9 +118,6 @@ jobs:
       
       - name: Build and push Docker image for base-${{ matrix.base_image }}
         run: |
-          # Navigate to base image directory
-          cd common/base/${{ matrix.base_image }}
-          
           # Define image details
           BASE_TYPE="${{ matrix.base_image }}"
           
@@ -134,8 +131,9 @@ jobs:
           PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-base/$BASE_TYPE:latest"
           SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-base/$BASE_TYPE:latest"
           
-          # Build the Docker image
-          docker build -t $PRIVATE_IMAGE -f Dockerfile.$BASE_TYPE .
+          # Build the Docker image from the root directory
+          # This matches how you run it locally
+          docker build -t $PRIVATE_IMAGE -f common/base/$BASE_TYPE/Dockerfile.$BASE_TYPE .
           
           # Tag the images
           docker tag $PRIVATE_IMAGE $PRIVATE_LATEST
