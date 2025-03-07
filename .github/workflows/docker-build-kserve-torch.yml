@@ -1,0 +1,161 @@
+name: Docker Build KServe Torch Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'common/kserve/torch/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'common/kserve/torch/**'
+  workflow_dispatch:
+    inputs:
+      torch_images:
+        description: 'Comma-separated list of torch images to build (cpu,gpu or leave empty for both)'
+        required: false
+        default: ''
+
+jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for detecting changes
+      
+      - name: Detect changed torch image directories
+        id: set-matrix
+        run: |
+          # Initialize torch images array
+          TORCH_IMAGES=()
+          
+          # If workflow was manually triggered with specific torch images
+          if [ ! -z "${{ github.event.inputs.torch_images }}" ]; then
+            # Split comma-separated input into array
+            IFS=',' read -ra IMAGES_INPUT <<< "${{ github.event.inputs.torch_images }}"
+            for image in "${IMAGES_INPUT[@]}"; do
+              # Trim whitespace
+              image=$(echo "$image" | xargs)
+              # Check if directory exists
+              if [ -d "common/kserve/torch/$image" ]; then
+                TORCH_IMAGES+=("$image")
+              fi
+            done
+          else
+            # Check for changes in the torch directories
+            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              # If this is a PR, compare with the base branch
+              if [ "${{ github.event_name }}" == "pull_request" ]; then
+                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/cpu/" && TORCH_IMAGES+=("cpu")
+                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/gpu/" && TORCH_IMAGES+=("gpu")
+                # Check for changes in shared code that would affect both images
+                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/kserve_torch/" && TORCH_IMAGES+=("cpu" "gpu")
+                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/setup.py" && TORCH_IMAGES+=("cpu" "gpu")
+              else
+                # For push events, compare with the previous commit
+                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/cpu/" && TORCH_IMAGES+=("cpu")
+                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/gpu/" && TORCH_IMAGES+=("gpu")
+                # Check for changes in shared code that would affect both images
+                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/kserve_torch/" && TORCH_IMAGES+=("cpu" "gpu")
+                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/setup.py" && TORCH_IMAGES+=("cpu" "gpu")
+              fi
+            else
+              # For manual runs without specific torch images, include both
+              TORCH_IMAGES+=("cpu" "gpu")
+            fi
+          fi
+          
+          # Remove duplicates
+          TORCH_IMAGES=($(echo "${TORCH_IMAGES[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
+          
+          # Create JSON matrix using proper JSON formatting
+          if [ ${#TORCH_IMAGES[@]} -eq 0 ]; then
+            # If no changes detected, create an empty array
+            echo "matrix={\"torch_type\":[]}" >> $GITHUB_OUTPUT
+            echo "No torch image directories with changes detected."
+          else
+            # Generate a properly formatted JSON string for the matrix
+            JSON_ARRAY="["
+            for i in "${!TORCH_IMAGES[@]}"; do
+              if [ $i -gt 0 ]; then
+                JSON_ARRAY+=","
+              fi
+              JSON_ARRAY+="\"${TORCH_IMAGES[$i]}\""
+            done
+            JSON_ARRAY+="]"
+            
+            echo "matrix={\"torch_type\":$JSON_ARRAY}" >> $GITHUB_OUTPUT
+            echo "Detected changes in torch image directories: ${TORCH_IMAGES[@]}"
+          fi
+
+  build_and_push:
+    needs: detect_changes
+    if: ${{ fromJSON(needs.detect_changes.outputs.matrix).torch_type[0] != null }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.detect_changes.outputs.matrix) }}
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set date environment variable
+        run: echo "date=$(date '+%Y-%m-%d-%H%M')" >> $GITHUB_ENV
+      
+      - name: Docker login (Private Registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_PRIVATE }}
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      
+      - name: Docker login (SEMOSS Registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_SEMOSS }}
+          username: ${{ secrets.SEMOSS_DOCKER_USER }}
+          password: ${{ secrets.SEMOSS_DOCKER_PASS }}
+      
+      - name: Build and push Docker image for torch-${{ matrix.torch_type }}
+        run: |
+          # Define image details
+          TORCH_TYPE="${{ matrix.torch_type }}"
+          
+          echo "Building KServe Torch Docker image for $TORCH_TYPE"
+          
+          # Define image names with timestamps
+          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-torch/$TORCH_TYPE:${{ env.date }}"
+          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-torch/$TORCH_TYPE:${{ env.date }}"
+          
+          # Also create latest tags
+          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-torch/$TORCH_TYPE:latest"
+          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-torch/$TORCH_TYPE:latest"
+          
+          # Define base image ARG
+          BASE_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-base/$TORCH_TYPE:latest"
+          
+          # Build the Docker image
+          docker build \
+            --build-arg BASE_IMAGE=$BASE_IMAGE \
+            -t $PRIVATE_IMAGE \
+            -f common/kserve/torch/$TORCH_TYPE/Dockerfile.torch.$TORCH_TYPE .
+          
+          # Tag the images
+          docker tag $PRIVATE_IMAGE $PRIVATE_LATEST
+          docker tag $PRIVATE_IMAGE $SEMOSS_IMAGE
+          docker tag $SEMOSS_IMAGE $SEMOSS_LATEST
+          
+          # Push all the images
+          docker push $PRIVATE_IMAGE
+          docker push $PRIVATE_LATEST
+          docker push $SEMOSS_IMAGE
+          docker push $SEMOSS_LATEST
+          
+          echo "Successfully built and pushed KServe Torch images for $TORCH_TYPE"
