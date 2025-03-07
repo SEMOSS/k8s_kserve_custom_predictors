@@ -1,7 +1,7 @@
 ARG MODE=cpu
-ARG BASE_IMAGE_PREFIX=cfg-ms-torch
+ARG BASE_IMAGE=cfg-ms-torch-cpu:latest
 
-FROM ${BASE_IMAGE_PREFIX}-${MODE}:latest
+FROM ${BASE_IMAGE}
 
 WORKDIR /app
 

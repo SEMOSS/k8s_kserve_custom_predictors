@@ -169,13 +169,13 @@ jobs:
           PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/models/$MODEL-$MODE:latest"
           SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/models/$MODEL-$MODE:latest"
           
-          # Define base image prefix for Docker build
-          BASE_IMAGE_PREFIX="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-torch/"
+          # Define complete base image path
+          BASE_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-torch/$MODE:latest"
           
           # Build the Docker image
           docker build \
             --build-arg MODE=$MODE \
-            --build-arg BASE_IMAGE_PREFIX=$BASE_IMAGE_PREFIX \
+            --build-arg BASE_IMAGE=$BASE_IMAGE \
             --build-arg MODEL_NAME=$MODEL \
             -t $PRIVATE_IMAGE \
             -f models/$MODEL/Dockerfile .
