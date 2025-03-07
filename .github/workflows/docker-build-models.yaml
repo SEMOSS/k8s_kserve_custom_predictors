@@ -1,0 +1,194 @@
+name: Docker Build Model Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'models/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'models/**'
+  workflow_dispatch:
+    inputs:
+      model_names:
+        description: 'Comma-separated list of model names to build (e.g., gliner,other_model)'
+        required: false
+        default: ''
+      modes:
+        description: 'Comma-separated list of modes to build (cpu,gpu or leave empty for both)'
+        required: false
+        default: 'cpu'
+
+jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for detecting changes
+      
+      - name: Detect changed model directories
+        id: set-matrix
+        run: |
+          # Initialize arrays for models and modes
+          MODELS=()
+          MODES=()
+          
+          # Process modes input
+          if [ ! -z "${{ github.event.inputs.modes }}" ]; then
+            IFS=',' read -ra MODES_INPUT <<< "${{ github.event.inputs.modes }}"
+            for mode in "${MODES_INPUT[@]}"; do
+              # Trim whitespace
+              mode=$(echo "$mode" | xargs)
+              if [[ "$mode" == "cpu" || "$mode" == "gpu" ]]; then
+                MODES+=("$mode")
+              fi
+            done
+          else
+            # Default to both modes if not specified
+            MODES+=("cpu" "gpu")
+          fi
+          
+          # If workflow was manually triggered with specific model names
+          if [ ! -z "${{ github.event.inputs.model_names }}" ]; then
+            # Split comma-separated input into array
+            IFS=',' read -ra MODELS_INPUT <<< "${{ github.event.inputs.model_names }}"
+            for model in "${MODELS_INPUT[@]}"; do
+              # Trim whitespace
+              model=$(echo "$model" | xargs)
+              # Check if directory exists
+              if [ -d "models/$model" ]; then
+                MODELS+=("$model")
+              fi
+            done
+          else
+            # Check for changes in the models directories
+            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              # Get all model directories
+              for dir in models/*/; do
+                # Extract just the model name from the path
+                model_name=$(basename "$dir")
+                
+                # If this is a PR, compare with the base branch
+                if [ "${{ github.event_name }}" == "pull_request" ]; then
+                  if git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^models/$model_name/"; then
+                    MODELS+=("$model_name")
+                  fi
+                else
+                  # For push events, compare with the previous commit
+                  if git diff --name-only HEAD^ HEAD | grep -q "^models/$model_name/"; then
+                    MODELS+=("$model_name")
+                  fi
+                fi
+              done
+            else
+              # For manual runs without specific model names, include all models
+              for dir in models/*/; do
+                model_name=$(basename "$dir")
+                MODELS+=("$model_name")
+              done
+            fi
+          fi
+          
+          # Create combinations for matrix
+          COMBINATIONS=()
+          for model in "${MODELS[@]}"; do
+            for mode in "${MODES[@]}"; do
+              COMBINATIONS+=("{\"model\":\"$model\",\"mode\":\"$mode\"}")
+            done
+          done
+          
+          # Create JSON matrix using proper JSON formatting
+          if [ ${#COMBINATIONS[@]} -eq 0 ]; then
+            # If no changes detected, create an empty array
+            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            echo "No model changes detected."
+          else
+            # Generate a properly formatted JSON string for the matrix
+            JSON_ARRAY="["
+            for i in "${!COMBINATIONS[@]}"; do
+              if [ $i -gt 0 ]; then
+                JSON_ARRAY+=","
+              fi
+              JSON_ARRAY+="${COMBINATIONS[$i]}"
+            done
+            JSON_ARRAY+="]"
+            
+            echo "matrix={\"include\":$JSON_ARRAY}" >> $GITHUB_OUTPUT
+            echo "Detected model changes: ${MODELS[@]} with modes: ${MODES[@]}"
+          fi
+
+  build_and_push:
+    needs: detect_changes
+    if: ${{ fromJSON(needs.detect_changes.outputs.matrix).include[0] != null }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.detect_changes.outputs.matrix) }}
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set date environment variable
+        run: echo "date=$(date '+%Y-%m-%d-%H%M')" >> $GITHUB_ENV
+      
+      - name: Docker login (Private Registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_PRIVATE }}
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      
+      - name: Docker login (SEMOSS Registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_SEMOSS }}
+          username: ${{ secrets.SEMOSS_DOCKER_USER }}
+          password: ${{ secrets.SEMOSS_DOCKER_PASS }}
+      
+      - name: Build and push Docker image for ${{ matrix.model }}-${{ matrix.mode }}
+        run: |
+          # Define image details
+          MODEL="${{ matrix.model }}"
+          MODE="${{ matrix.mode }}"
+          
+          echo "Building model Docker image for $MODEL ($MODE)"
+          
+          # Define image names with timestamps
+          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/models/$MODEL-$MODE:${{ env.date }}"
+          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/models/$MODEL-$MODE:${{ env.date }}"
+          
+          # Also create latest tags
+          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/models/$MODEL-$MODE:latest"
+          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/models/$MODEL-$MODE:latest"
+          
+          # Define base image prefix for Docker build
+          BASE_IMAGE_PREFIX="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-torch/"
+          
+          # Build the Docker image
+          docker build \
+            --build-arg MODE=$MODE \
+            --build-arg BASE_IMAGE_PREFIX=$BASE_IMAGE_PREFIX \
+            --build-arg MODEL_NAME=$MODEL \
+            -t $PRIVATE_IMAGE \
+            -f models/$MODEL/Dockerfile .
+          
+          # Tag the images
+          docker tag $PRIVATE_IMAGE $PRIVATE_LATEST
+          docker tag $PRIVATE_IMAGE $SEMOSS_IMAGE
+          docker tag $SEMOSS_IMAGE $SEMOSS_LATEST
+          
+          # Push all the images
+          docker push $PRIVATE_IMAGE
+          docker push $PRIVATE_LATEST
+          docker push $SEMOSS_IMAGE
+          docker push $SEMOSS_LATEST
+          
+          echo "Successfully built and pushed model image for $MODEL ($MODE)"
