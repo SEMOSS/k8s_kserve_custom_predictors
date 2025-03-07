@@ -162,12 +162,12 @@ jobs:
           echo "Building model Docker image for $MODEL ($MODE)"
           
           # Define image names with timestamps
-          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/models/$MODEL-$MODE:${{ env.date }}"
-          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/models/$MODEL-$MODE:${{ env.date }}"
+          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-models/$MODEL-$MODE:${{ env.date }}"
+          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-models/$MODEL-$MODE:${{ env.date }}"
           
           # Also create latest tags
-          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/models/$MODEL-$MODE:latest"
-          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/models/$MODEL-$MODE:latest"
+          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-models/$MODEL-$MODE:latest"
+          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-models/$MODEL-$MODE:latest"
           
           # Define complete base image path
           BASE_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-torch/$MODE:latest"
