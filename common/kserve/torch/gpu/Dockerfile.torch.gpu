@@ -1,0 +1,21 @@
+FROM cfg-ms-base-gpu AS cfg-ms-torch-gpu
+
+WORKDIR /app
+
+RUN poetry add torch==2.6.0 \
+    torchvision==0.21.0 \
+    torchaudio==2.6.0 \
+    accelerate>=1.4.0 \
+    paddleocr>=2.9.1 \
+    transformers>=4.49.0
+
+RUN poetry install --no-interaction --no-ansi --no-root
+
+# Copy the kserve_torch package
+COPY common/kserve/torch /app/kserve-torch/
+
+# Install the package
+RUN pip install -e /app/kserve-torch/
+
+# Verify the package is installed
+RUN python -c "import kserve_torch; print(f'kserve_torch package found at {kserve_torch.__file__}')"

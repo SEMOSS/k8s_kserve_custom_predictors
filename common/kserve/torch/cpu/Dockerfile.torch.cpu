@@ -1,0 +1,16 @@
+FROM cfg-ms-base-cpu AS cfg-ms-torch-cpu
+
+WORKDIR /app
+
+RUN poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu && \
+    poetry add --source pytorch_cpu torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0
+
+
+# Copy the kserve_torch package
+COPY common/kserve/torch /app/kserve-torch/
+
+# Install the package
+RUN pip install -e /app/kserve-torch/
+
+# Verify the package is installed
+RUN python -c "import kserve_torch; print(f'kserve_torch package found at {kserve_torch.__file__}')"

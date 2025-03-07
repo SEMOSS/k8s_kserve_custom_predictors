@@ -1,0 +1,141 @@
+name: Docker Build Base Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'common/base/cpu/**'
+      - 'common/base/gpu/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'common/base/cpu/**'
+      - 'common/base/gpu/**'
+  workflow_dispatch:
+    inputs:
+      base_images:
+        description: 'Comma-separated list of base images to build (cpu,gpu or leave empty for both)'
+        required: false
+        default: ''
+
+jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for detecting changes
+      
+      - name: Detect changed base image directories
+        id: set-matrix
+        run: |
+          # Initialize base images array
+          BASE_IMAGES=()
+          
+          # If workflow was manually triggered with specific base images
+          if [ ! -z "${{ github.event.inputs.base_images }}" ]; then
+            # Split comma-separated input into array
+            IFS=',' read -ra IMAGES_INPUT <<< "${{ github.event.inputs.base_images }}"
+            for image in "${IMAGES_INPUT[@]}"; do
+              # Trim whitespace
+              image=$(echo "$image" | xargs)
+              # Check if directory exists
+              if [ -d "common/base/$image" ]; then
+                BASE_IMAGES+=("$image")
+              fi
+            done
+          else
+            # Check for changes in the CPU directory
+            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              # If this is a PR, compare with the base branch
+              if [ "${{ github.event_name }}" == "pull_request" ]; then
+                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/base/cpu/" && BASE_IMAGES+=("cpu")
+                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/base/gpu/" && BASE_IMAGES+=("gpu")
+              else
+                # For push events, compare with the previous commit
+                git diff --name-only HEAD^ HEAD | grep -q "^common/base/cpu/" && BASE_IMAGES+=("cpu")
+                git diff --name-only HEAD^ HEAD | grep -q "^common/base/gpu/" && BASE_IMAGES+=("gpu")
+              fi
+            else
+              # For manual runs without specific base images, include both
+              BASE_IMAGES+=("cpu" "gpu")
+            fi
+          fi
+          
+          # Create JSON matrix
+          if [ ${#BASE_IMAGES[@]} -eq 0 ]; then
+            # If no changes detected, create a dummy value to avoid workflow failure
+            echo "matrix={\"base_image\":[]}" >> $GITHUB_OUTPUT
+            echo "No base image directories with changes detected."
+          else
+            echo "matrix={\"base_image\":[\"$(IFS="\",\""; echo "${BASE_IMAGES[*]}")\"]}" >> $GITHUB_OUTPUT
+            echo "Detected changes in base image directories: ${BASE_IMAGES[@]}"
+          fi
+
+  build_and_push:
+    needs: detect_changes
+    if: ${{ fromJSON(needs.detect_changes.outputs.matrix).base_image[0] != null }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.detect_changes.outputs.matrix) }}
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set date environment variable
+        run: echo "date=$(date '+%Y-%m-%d-%H%M')" >> $GITHUB_ENV
+      
+      - name: Docker login (Private Registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_PRIVATE }}
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      
+      - name: Docker login (SEMOSS Registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_SEMOSS }}
+          username: ${{ secrets.SEMOSS_DOCKER_USER }}
+          password: ${{ secrets.SEMOSS_DOCKER_PASS }}
+      
+      - name: Build and push Docker image for base-${{ matrix.base_image }}
+        run: |
+          # Navigate to base image directory
+          cd common/base/${{ matrix.base_image }}
+          
+          # Define image details
+          BASE_TYPE="${{ matrix.base_image }}"
+          
+          echo "Building base Docker image for $BASE_TYPE"
+          
+          # Define image names with timestamps
+          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/base/$BASE_TYPE:${{ env.date }}"
+          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/base/$BASE_TYPE:${{ env.date }}"
+          
+          # Also create latest tags
+          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/base/$BASE_TYPE:latest"
+          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/base/$BASE_TYPE:latest"
+          
+          # Build the Docker image
+          docker build -t $PRIVATE_IMAGE -f Dockerfile.$BASE_TYPE .
+          
+          # Tag the images
+          docker tag $PRIVATE_IMAGE $PRIVATE_LATEST
+          docker tag $PRIVATE_IMAGE $SEMOSS_IMAGE
+          docker tag $SEMOSS_IMAGE $SEMOSS_LATEST
+          
+          # Push all the images
+          docker push $PRIVATE_IMAGE
+          docker push $PRIVATE_LATEST
+          docker push $SEMOSS_IMAGE
+          docker push $SEMOSS_LATEST
+          
+          echo "Successfully built and pushed base images for $BASE_TYPE"
