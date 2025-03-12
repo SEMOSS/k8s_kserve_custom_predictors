@@ -2,8 +2,13 @@ import abc
 import logging
 import uuid
 import argparse
+import os
+import re
 from typing import Dict, List, Any, Tuple, Type
-
+import base64
+from io import BytesIO
+from PIL import Image
+import requests
 import torch
 import kserve
 from kserve import InferRequest, InferResponse, Model, InferOutput, ModelServer
@@ -27,7 +32,56 @@ class BaseTorchModel(Model, abc.ABC):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(f"Using device: {self.device}")
+
+        self.model_files_base_path = os.environ.get("MODEL_FILES_PATH", "/model-files")
+        self.logger.info(f"Model files base path: {self.model_files_base_path}")
+
         self.load()
+
+    @staticmethod
+    def get_safe_model_path(model_id: str) -> str:
+        """
+        Convert a model ID to a path-safe directory name.
+
+        Args:
+            model_id: The full model ID (e.g., "microsoft/Florence-2-large")
+
+        Returns:
+            A path-safe directory name for the model
+        """
+        short_name = model_id.split("/")[-1] if "/" in model_id else model_id
+
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "-", short_name).lower()
+
+        return safe_name
+
+    def get_model_dir(self, model_id: str) -> str:
+        """
+        Get the full path for model directory in the mounted volume.
+
+        Args:
+            model_id: The full model ID (e.g., "microsoft/Florence-2-large")
+
+        Returns:
+            The full path to the model directory
+        """
+        safe_name = self.get_safe_model_path(model_id)
+        return os.path.join(self.model_files_base_path, safe_name)
+
+    def check_model_dir_exists(self, model_id: str) -> bool:
+        """
+        Check if the model directory exists in the mounted volume.
+
+        Args:
+            model_id: The model ID to check
+
+        Returns:
+            True if the directory exists, False otherwise
+        """
+        model_dir = self.get_model_dir(model_id)
+        exists = os.path.isdir(model_dir)
+        self.logger.info(f"Checking if model directory exists at {model_dir}: {exists}")
+        return exists
 
     @abc.abstractmethod
     def load(self) -> None:
@@ -55,6 +109,41 @@ class BaseTorchModel(Model, abc.ABC):
             - Optional metadata or additional context as a dictionary
         """
         pass
+
+    def decode_base64_image(self, base64_string: str) -> Image.Image:
+        """Decode a base64 string into a PIL Image."""
+        try:
+            if "base64," in base64_string:
+                base64_string = base64_string.split("base64,")[1]
+
+            img_data = base64.b64decode(base64_string)
+            img = Image.open(BytesIO(img_data))
+            return img
+        except Exception as e:
+            self.logger.error(f"Error decoding base64 image: {e}")
+            raise ValueError(f"Failed to decode base64 image: {e}")
+
+    def process_image_input(self, image_data: str) -> Image.Image:
+        """
+        Process image input which can be either a URL or base64-encoded data.
+        Args:
+            image_data: Either a URL (starting with http) or base64-encoded image data
+
+        Returns:
+            PIL Image object
+        """
+        if image_data.startswith(("http://", "https://")):
+            self.logger.info(f"Processing image from URL: {image_data[:50]}...")
+            try:
+                response = requests.get(image_data, timeout=10)
+                response.raise_for_status()  # Raise exception for 4XX/5XX responses
+                img = Image.open(BytesIO(response.content))
+                return img
+            except Exception as e:
+                self.logger.error(f"Error fetching image from URL: {e}")
+                raise ValueError(f"Failed to fetch image from URL: {e}")
+        else:
+            return self.decode_base64_image(image_data)
 
     async def predict(
         self, request, headers=None, response_headers=None

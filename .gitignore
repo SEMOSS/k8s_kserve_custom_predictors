@@ -64,3 +64,5 @@ htmlcov/
 
 dir-strut.ps1
 directory_structure.txt
+pyproject.toml
+uv.lock

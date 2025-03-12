@@ -15,16 +15,37 @@ class GLiNERModel(BaseTorchModel):
         super().__init__(name)
 
     def load(self) -> None:
-        """Load the model from HuggingFace Hub"""
+        """Load the GLiNER model from local storage or HuggingFace Hub"""
         try:
             model_id = os.environ.get("MODEL_ID", "urchade/gliner_multi-v2.1")
-            self.logger.info(f"Loading GLiNER model from {model_id}")
+            self.logger.info(f"Initializing GLiNER model with ID: {model_id}")
 
-            self.model = GLiNER.from_pretrained(model_id, device=self.device)
+            model_dir_exists = self.check_model_dir_exists(model_id)
+            model_path = None
+
+            if model_dir_exists:
+                # Use the local path if it exists
+                model_path = self.get_model_dir(model_id)
+                self.logger.info(f"Found model directory at {model_path}")
+
+            if model_path and os.path.isdir(model_path):
+                self.logger.info(f"Loading model from local path: {model_path}")
+                try:
+                    self.model = GLiNER.from_pretrained(model_path, device=self.device)
+                    self.logger.info(f"Successfully loaded model from local path")
+                except Exception as e:
+                    self.logger.warning(f"Failed to load model from local path: {e}")
+                    self.logger.info("Falling back to downloading from HuggingFace")
+                    model_path = None
+
+            if not model_path or not hasattr(self, "model") or self.model is None:
+                self.logger.info(f"Loading model from HuggingFace Hub: {model_id}")
+                self.model = GLiNER.from_pretrained(model_id, device=self.device)
+
             self.ready = True
             self.logger.info("GLiNER model loaded successfully")
         except Exception as e:
-            self.logger.error(f"Error loading model: {e}")
+            self.logger.error(f"Error loading model: {e}", exc_info=True)
             raise
 
     def _generate_mask(self, length: int = 6) -> str:
