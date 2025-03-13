@@ -2,7 +2,7 @@
 
 ## Docker Build
 
-`docker build -f Dockerfile.cpu -t cfg-ms-base-cpu .`
+`docker build -f common/base/cpu/Dockerfile.cpu -t cfg-ms-base-cpu .`
 
 ## Specs
 

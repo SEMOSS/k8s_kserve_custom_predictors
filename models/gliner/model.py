@@ -152,7 +152,7 @@ class GLiNERModel(BaseTorchModel):
                 data=entities_schema,
             ),
         ]
-
+        self.logger.info(f"output list: {output_list}")
         # Return outputs and empty metadata
         return output_list, {}
 

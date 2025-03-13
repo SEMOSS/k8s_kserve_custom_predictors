@@ -2,7 +2,7 @@
 
 ## Docker Build
 
-`docker build -f Dockerfile.gpu -t cfg-ms-base-gpu .`
+`docker build -f common/base/gpu/Dockerfile.gpu -t cfg-ms-base-gpu .`
 
 ## Specs
 
