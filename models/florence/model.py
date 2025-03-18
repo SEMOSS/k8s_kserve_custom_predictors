@@ -24,12 +24,12 @@ class FlorenceModel(BaseTorchModel):
             self.logger.info(f"Initializing Florence model with ID: {model_id}")
 
             # Check if model directory exists in the mounted volume
-            model_dir_exists = self.check_model_dir_exists(model_id)
+            model_dir_exists = self.check_model_dir_exists()
             model_path = None
 
             if model_dir_exists:
                 # Use the local path if it exists
-                model_path = self.get_model_dir(model_id)
+                model_path = self.model_files_base_path
                 self.logger.info(f"Found model directory at {model_path}")
 
             # Load the model from local path or download from HuggingFace

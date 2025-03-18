@@ -68,7 +68,7 @@ class BaseTorchModel(Model, abc.ABC):
         safe_name = self.get_safe_model_path(model_id)
         return os.path.join(self.model_files_base_path, safe_name)
 
-    def check_model_dir_exists(self, model_id: str) -> bool:
+    def check_model_dir_exists(self) -> bool:
         """
         Check if the model directory exists in the mounted volume.
 
@@ -78,9 +78,18 @@ class BaseTorchModel(Model, abc.ABC):
         Returns:
             True if the directory exists, False otherwise
         """
-        model_dir = self.get_model_dir(model_id)
-        exists = os.path.isdir(model_dir)
-        self.logger.info(f"Checking if model directory exists at {model_dir}: {exists}")
+        # For local development with volumes
+        if self.model_files_base_path == "/model-files":
+            self.logger.warning(
+                "MODEL_FILES_PATH environment variable is not set. Defaulting to /model-files"
+            )
+            model_id = os.environ.get("MODEL_ID")
+            self.model_files_base_path = self.get_model_dir(model_id)
+
+        exists = os.path.isdir(self.model_files_base_path)
+        self.logger.info(
+            f"Checking if model directory exists at {self.model_files_base_path}: {exists}"
+        )
         return exists
 
     @abc.abstractmethod

@@ -25,7 +25,7 @@ class GLiNERModel(BaseTorchModel):
 
             if model_dir_exists:
                 # Use the local path if it exists
-                model_path = self.get_model_dir(model_id)
+                model_path = self.model_files_base_path
                 self.logger.info(f"Found model directory at {model_path}")
 
             if model_path and os.path.isdir(model_path):
