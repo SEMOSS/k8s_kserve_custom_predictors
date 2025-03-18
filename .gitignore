@@ -64,5 +64,10 @@ htmlcov/
 
 dir-strut.ps1
 directory_structure.txt
-pyproject.toml
 uv.lock
+
+# Model files
+model_files/*
+**/model_files/*
+!model_files/.gitkeep
+!**/model_files/.gitkeep
