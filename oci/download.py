@@ -3,9 +3,9 @@ from huggingface_hub import snapshot_download
 
 def download_model_files():
 
-    model_repo_id = "microsoft/Florence-2-large"
+    model_repo_id = "urchade/gliner_multi-v2.1"
 
-    short_name = "florence-2-large"
+    short_name = "gliner_multi-v2-1"
 
     local_model_dir = f"./oci/{short_name}/model_files"
 

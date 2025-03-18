@@ -111,5 +111,8 @@ if __name__ == "__main__":
 ## CICD
 Docker images are built and pushed when changes are detected at any of the image levels on merges into the `main` branch.
 
+## OCI Images
+See the [OCI_README.md](./oci/OCI_README.md) for instructions on how to build and run OCI images for the models.
+
 ## Contributing
 Local development should be done using Docker due to the dependency architecture.
