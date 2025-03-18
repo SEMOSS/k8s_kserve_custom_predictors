@@ -18,5 +18,12 @@ COPY common/kserve/torch /app/kserve-torch/
 # Install the package
 RUN pip install -e /app/kserve-torch/
 
+# Set HuggingFace cache directories explicitly
+ENV HF_HOME="/app/.cache/huggingface"
+ENV TRANSFORMERS_CACHE="/app/.cache/huggingface/transformers"
+
+# Ensure cache directories exist with appropriate permissions
+RUN mkdir -p ${HF_HOME} ${TRANSFORMERS_CACHE} && chmod -R 777 /app/.cache
+
 # Verify the package is installed
 RUN python -c "import kserve_torch; print(f'kserve_torch package found at {kserve_torch.__file__}')"
