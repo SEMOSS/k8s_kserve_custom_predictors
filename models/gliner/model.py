@@ -20,7 +20,7 @@ class GLiNERModel(BaseTorchModel):
             model_id = os.environ.get("MODEL_ID", "urchade/gliner_multi-v2.1")
             self.logger.info(f"Initializing GLiNER model with ID: {model_id}")
 
-            model_dir_exists = self.check_model_dir_exists(model_id)
+            model_dir_exists = self.check_model_dir_exists()
             model_path = None
 
             if model_dir_exists:
