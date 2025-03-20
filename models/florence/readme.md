@@ -12,9 +12,9 @@ Florence-2-large is a powerful multimodal model that can perform various tasks:
 - `<OD>`: Detects objects in an image and provides their bounding box coordinates along with labels
 - `<DENSE_REGION_CAPTION>`: Generates captions for densely packed regions within an image, identifying multiple objects or areas simultaneously
 - `<REGIONAL_PROPOSAL>`: Suggests specific regions in an image that may contain objects or areas of interest for further analysis
-- `<CAPTION_TO_PHRASE_GROUNDING>`: Aligns phrases from a generated caption with specific regions in the image, enabling precise visual-textual mapping
-- `<REFERRING_EXPRESSION_SEGMENTATION>`: Segments parts of an image based on textual descriptions of specific objects or regions
-- `<REGION_TO_SEGMENTATION>`: Converts bounding boxes into segmentation masks to outline specific objects or areas within an image
+- `<CAPTION_TO_PHRASE_GROUNDING> your_text_input`: Aligns phrases from a generated caption with specific regions in the image, enabling precise visual-textual mapping
+- `<REFERRING_EXPRESSION_SEGMENTATION> your_text_input`: Segments parts of an image based on textual descriptions of specific objects or regions
+- `<REGION_TO_SEGMENTATION> your_text_input`: Converts bounding boxes into segmentation masks to outline specific objects or areas within an image
 - `<OCR>`: Extracts text from an image as a single string, useful for reading printed or handwritten text
 - `<OCR_WITH_REGION>`: Retrieves text from an image along with its location, providing bounding boxes for each piece of text
 
