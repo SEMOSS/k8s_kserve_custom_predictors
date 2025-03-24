@@ -14,11 +14,11 @@ docker build -f models/gliner/Dockerfile --build-arg MODE=gpu -t gliner-predicto
 ## Run Docker Container
 
 ```bash
-docker run -p 8080:8080 --name gliner-predictor-cpu -v model-volume:/model-files gliner-predictor:cpu
+docker run -p 8080:8080 --name gliner-predictor-cpu -v /var/lib/docker/volumes/model-volume/_data/gliner-multi-v2-1:/mnt/models  gliner-predictor:cpu
 ```
 
 ```bash
-docker run -p 8080:8080 --name gliner-predictor-gpu -v model-volume:/model-files gliner-predictor:gpu
+docker run -p 8080:8080 --name gliner-predictor-gpu -v /var/lib/docker/volumes/model-volume/_data/gliner-multi-v2-1:/mnt/models gliner-predictor:gpu
 ```
 
 ## Python Packages

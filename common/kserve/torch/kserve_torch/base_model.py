@@ -33,59 +33,19 @@ class BaseTorchModel(Model, abc.ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(f"Using device: {self.device}")
 
-        self.model_files_base_path = os.environ.get("MODEL_FILES_PATH", "/model-files")
+        self.model_files_base_path = os.environ.get("MODEL_FILES_PATH", "/mnt/models")
         self.logger.info(f"Model files base path: {self.model_files_base_path}")
 
         self.load()
 
-    @staticmethod
-    def get_safe_model_path(model_id: str) -> str:
-        """
-        Convert a model ID to a path-safe directory name.
-
-        Args:
-            model_id: The full model ID (e.g., "microsoft/Florence-2-large")
-
-        Returns:
-            A path-safe directory name for the model
-        """
-        short_name = model_id.split("/")[-1] if "/" in model_id else model_id
-
-        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "-", short_name).lower()
-
-        return safe_name
-
-    def get_model_dir(self, model_id: str) -> str:
-        """
-        Get the full path for model directory in the mounted volume.
-
-        Args:
-            model_id: The full model ID (e.g., "microsoft/Florence-2-large")
-
-        Returns:
-            The full path to the model directory
-        """
-        safe_name = self.get_safe_model_path(model_id)
-        return os.path.join(self.model_files_base_path, safe_name)
-
     def check_model_dir_exists(self) -> bool:
         """
         Check if the model directory exists in the mounted volume.
-
         Args:
             model_id: The model ID to check
-
         Returns:
             True if the directory exists, False otherwise
         """
-        # For local development with volumes
-        if self.model_files_base_path == "/model-files":
-            self.logger.warning(
-                "MODEL_FILES_PATH environment variable is not set. Defaulting to /model-files"
-            )
-            model_id = os.environ.get("MODEL_ID")
-            self.model_files_base_path = self.get_model_dir(model_id)
-
         exists = os.path.isdir(self.model_files_base_path)
         self.logger.info(
             f"Checking if model directory exists at {self.model_files_base_path}: {exists}"
@@ -239,7 +199,6 @@ class BaseTorchModel(Model, abc.ABC):
             )
             kserve_logging.configure_logging(args.log_config_file)
 
-        # Initialize the model
         model = model_class(args.model_name)
 
         app = kserve.model_server.app

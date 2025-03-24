@@ -80,12 +80,6 @@ exit /b 0
 set MODEL_NAME=%1
 echo Building model: %MODEL_NAME%
 
-:: Check if model_files directory exists
-if not exist "%OCI_DIR%%MODEL_NAME%\model_files" (
-    echo No model_files directory found for %MODEL_NAME%, skipping...
-    exit /b 0
-)
-
 :: Create image names with organized structure
 set PRIVATE_IMAGE=%DOCKER_PRIVATE%/genai/cfg-ms-models/oci/%MODEL_NAME%:%DATE_TAG%
 set PRIVATE_LATEST=%DOCKER_PRIVATE%/genai/cfg-ms-models/oci/%MODEL_NAME%:latest
@@ -95,7 +89,7 @@ set SEMOSS_LATEST=%DOCKER_SEMOSS%/genai/cfg-ms-models/oci/%MODEL_NAME%:latest
 :: Build image using the shared Dockerfile with build args
 echo Building Docker image for %MODEL_NAME%...
 docker build ^
-  --build-arg MODEL_PATH=%MODEL_NAME%/model_files ^
+  --build-arg MODEL_PATH=%MODEL_NAME% ^
   --build-arg MODEL_NAME=%MODEL_NAME% ^
   -t %PRIVATE_IMAGE% ^
   -f %OCI_DIR%Dockerfile ^

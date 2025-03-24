@@ -51,6 +51,26 @@ The application-specific layer that implements:
 
 ## Using the Architecture
 
+### Create & Manage Docker Volumes
+1. Create a Docker volume for the model files (if not already created):
+   ```bash
+   docker volume create model-volume
+   ```
+2. Use the `download.py` script in the OCI directory to download the model
+3. Copy the downloaded files to the Docker volume (Note the path will vary based on where you run this command. I recommend runnning from the `/oci` directory):
+   ```bash
+    # Run a temp container with the volume attached
+    docker run -d --name temp-container -v model-volume:/model-volume alpine tail -f /dev/null
+
+    # Copy the files
+    docker cp florence-2-large temp-container:/model-volume/
+
+    # Stop and remove the temp container
+    docker stop temp-container
+    docker rm temp-container
+   ```
+
+
 ### Building Images
 Images should be built in order from base to model layer:
 

@@ -71,3 +71,5 @@ model_files/*
 **/model_files/*
 !model_files/.gitkeep
 !**/model_files/.gitkeep
+
+/oci/*/

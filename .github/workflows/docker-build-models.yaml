@@ -77,12 +77,19 @@ jobs:
                 
                 # If this is a PR, compare with the base branch
                 if [ "${{ github.event_name }}" == "pull_request" ]; then
-                  if git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^models/$model_name/"; then
+                  # Get all changed files for this model
+                  CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep "^models/$model_name/" || echo "")
+                  # If there are changed files and they're not just README.md
+                  if [ ! -z "$CHANGED_FILES" ] && \
+                      (echo "$CHANGED_FILES" | grep -v "README.md" | grep -q "."); then
                     MODELS+=("$model_name")
                   fi
                 else
                   # For push events, compare with the previous commit
-                  if git diff --name-only HEAD^ HEAD | grep -q "^models/$model_name/"; then
+                  CHANGED_FILES=$(git diff --name-only HEAD^ HEAD | grep "^models/$model_name/" || echo "")
+                  # If there are changed files and they're not just README.md
+                  if [ ! -z "$CHANGED_FILES" ] && \
+                      (echo "$CHANGED_FILES" | grep -v "README.md" | grep -q "."); then
                     MODELS+=("$model_name")
                   fi
                 fi
@@ -94,34 +101,6 @@ jobs:
                 MODELS+=("$model_name")
               done
             fi
-          fi
-          
-          # Create combinations for matrix
-          COMBINATIONS=()
-          for model in "${MODELS[@]}"; do
-            for mode in "${MODES[@]}"; do
-              COMBINATIONS+=("{\"model\":\"$model\",\"mode\":\"$mode\"}")
-            done
-          done
-          
-          # Create JSON matrix using proper JSON formatting
-          if [ ${#COMBINATIONS[@]} -eq 0 ]; then
-            # If no changes detected, create an empty array
-            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
-            echo "No model changes detected."
-          else
-            # Generate a properly formatted JSON string for the matrix
-            JSON_ARRAY="["
-            for i in "${!COMBINATIONS[@]}"; do
-              if [ $i -gt 0 ]; then
-                JSON_ARRAY+=","
-              fi
-              JSON_ARRAY+="${COMBINATIONS[$i]}"
-            done
-            JSON_ARRAY+="]"
-            
-            echo "matrix={\"include\":$JSON_ARRAY}" >> $GITHUB_OUTPUT
-            echo "Detected model changes: ${MODELS[@]} with modes: ${MODES[@]}"
           fi
 
   build_and_push:

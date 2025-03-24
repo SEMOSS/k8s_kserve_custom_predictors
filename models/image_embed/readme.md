@@ -39,12 +39,12 @@ This model defaults to the GPU base image (`cfg-ms-torch-gpu:latest`).
 
 ### Run locally with GPU
 ```bash
-docker run --gpus all -p 8080:8080 -e MODEL_ID="facebook/dinov2-large" -e MODEL_NAME="dinov2-large" -v pixart-volume:/model image-embedding-predictor:gpu
+docker run --gpus all -p 8080:8080 -e MODEL_ID="facebook/dinov2-large" -e MODEL_NAME="dinov2-large" -v /var/lib/docker/volumes/model-volume/_data/dinov2-large:/mnt/models image-embedding-predictor:gpu
 ```
 
 ### Run locally with CPU
 ```bash
-docker run -p 8080:8080 -e MODEL_ID="facebook/dinov2-base" -e POOLING_STRATEGY="mean" -e NORMALIZE_EMBEDDINGS="true" image-embedding-predictor:cpu
+docker run -p 8080:8080 -e MODEL_ID="facebook/dinov2-base" -e POOLING_STRATEGY="mean" -e NORMALIZE_EMBEDDINGS="true" -v /var/lib/docker/volumes/model-volume/_data/dinov2-large:/mnt/models image-embedding-predictor:cpu
 ```
 
 ## Example Endpoint

@@ -33,14 +33,12 @@ docker build -f models/florence/Dockerfile --build-arg MODE=cpu -t florence-pred
 
 This model defaults to the GPU version of the PyTorch KServe image (`cfg-ms-torch-gpu`).
 
-## Docker Run
-
 ```bash
 # Run the model locally (GPU)
-docker run --gpus all -p 8080:8080 -v model-volume:/model-files florence-predictor:gpu
+docker run --gpus all -p 8080:8080 -v /var/lib/docker/volumes/model-volume/_data/florence-2-large:/mnt/models florence-predictor:gpu
 
 # Run the model locally (CPU) NOT RECOMMENDED
-docker run -p 8080:8080 -v model-volume:/model-files florence-predictor:cpu
+docker run --gpus all -p 8080:8080 -v /var/lib/docker/volumes/model-volume/_data/florence-2-large:/mnt/models florence-predictor:cpu
 ```
 
 ## Example Usage
