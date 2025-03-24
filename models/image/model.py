@@ -402,14 +402,91 @@ class ImageGenerationModel(BaseTorchModel):
 
             self.logger.info(f"Generated {len(result['images'])} images")
 
-            output_list = [
+            output_list = []
+
+            images = result.pop("images")
+            images_output = [
                 InferOutput(
                     name="output",
                     datatype="BYTES",
                     shape=[1],
-                    data=[json.dumps(result)],
+                    data=[json.dumps(images)],
                 ),
             ]
+
+            output_list.extend(images_output)
+
+            param_results = result.pop("parameters", None)
+            if param_results:
+                prompt = param_results.pop("prompt", None)
+                if prompt:
+                    prompt_output = InferOutput(
+                        name="prompt",
+                        datatype="BYTES",
+                        shape=[1],
+                        data=[json.dumps(prompt)],
+                    )
+                    output_list.append(prompt_output)
+
+                negative_prompt = param_results.pop("negative_prompt", None)
+                if negative_prompt:
+                    negative_prompt_output = InferOutput(
+                        name="negative_prompt",
+                        datatype="BYTES",
+                        shape=[1],
+                        data=[json.dumps(negative_prompt)],
+                    )
+                    output_list.append(negative_prompt_output)
+
+                height = param_results.pop("height", None)
+                if height:
+                    height_output = InferOutput(
+                        name="height",
+                        datatype="INT32",
+                        shape=[1],
+                        data=[height],
+                    )
+                    output_list.append(height_output)
+
+                width = param_results.pop("width", None)
+                if width:
+                    width_output = InferOutput(
+                        name="width",
+                        datatype="INT32",
+                        shape=[1],
+                        data=[width],
+                    )
+                    output_list.append(width_output)
+
+                num_inference_steps = param_results.pop("num_inference_steps", None)
+                if num_inference_steps:
+                    num_inference_steps_output = InferOutput(
+                        name="num_inference_steps",
+                        datatype="INT32",
+                        shape=[1],
+                        data=[num_inference_steps],
+                    )
+                    output_list.append(num_inference_steps_output)
+
+                guidance_scale = param_results.pop("guidance_scale", None)
+                if guidance_scale:
+                    guidance_scale_output = InferOutput(
+                        name="guidance_scale",
+                        datatype="FP32",
+                        shape=[1],
+                        data=[guidance_scale],
+                    )
+                    output_list.append(guidance_scale_output)
+
+                seed = param_results.pop("seed", None)
+                if seed:
+                    seed_output = InferOutput(
+                        name="seed",
+                        datatype="INT32",
+                        shape=[1],
+                        data=[seed],
+                    )
+                    output_list.append(seed_output)
 
             return output_list, {}
 

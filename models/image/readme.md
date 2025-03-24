@@ -136,21 +136,89 @@ POST /v2/models/stable-diffusion-v1-5/infer
 ### Response Example
 ```json
 {
-  "model_name": "image-generation",
-  "model_version": null,
-  "id": "cb7c1c36-e5d4-4d82-9e1f-c238d7d08dfc",
-  "parameters": null,
-  "outputs": [
-    {
-      "name": "output",
-      "shape": [1],
-      "datatype": "BYTES",
-      "parameters": null,
-      "data": [
-        "{\"images\":[\"data:image/png;base64,iVBORw0KGgoAAAANSUh...\", \"data:image/png;base64,iVBORw0KGgoAAAANSUh...\"],\"parameters\":{\"prompt\":\"A highly detailed digital painting of a magical forest with glowing mushrooms, 4k resolution\",\"negative_prompt\":\"blurry, low quality, distorted, text, watermark\",\"height\":768,\"width\":768,\"num_inference_steps\":30,\"guidance_scale\":7.5,\"seed\":42},\"model_id\":\"runwayml/stable-diffusion-v1-5\"}"
-      ]
-    }
-  ]
+    "model_name": "image-generation",
+    "model_version": null,
+    "id": "12739ec5-f7f5-4b61-838e-b81ca75b303b",
+    "parameters": null,
+    "outputs": [
+        {
+            "name": "output",
+            "shape": [
+                1
+            ],
+            "datatype": "BYTES",
+            "parameters": null,
+            "data": [
+                "["data:image\\png;base64,iVBORw0..."]"
+            ]
+        },
+        {
+            "name": "prompt",
+            "shape": [
+                1
+            ],
+            "datatype": "BYTES",
+            "parameters": null,
+            "data": [
+                "\"A photo of a cat in space, wearing an astronaut helmet\""
+            ]
+        },
+        {
+            "name": "negative_prompt",
+            "shape": [
+                1
+            ],
+            "datatype": "BYTES",
+            "parameters": null,
+            "data": [
+                "low quality, blurry, distorted, disfigured, text, watermark"
+            ]
+        },
+        {
+            "name": "height",
+            "shape": [
+                1
+            ],
+            "datatype": "INT32",
+            "parameters": null,
+            "data": [
+                512
+            ]
+        },
+        {
+            "name": "width",
+            "shape": [
+                1
+            ],
+            "datatype": "INT32",
+            "parameters": null,
+            "data": [
+                512
+            ]
+        },
+        {
+            "name": "num_inference_steps",
+            "shape": [
+                1
+            ],
+            "datatype": "INT32",
+            "parameters": null,
+            "data": [
+                30
+            ]
+        },
+        {
+            "name": "guidance_scale",
+            "shape": [
+                1
+            ],
+            "datatype": "FP32",
+            "parameters": null,
+            "data": [
+                7.5
+            ]
+        }
+    ]
 }
 ```
 
