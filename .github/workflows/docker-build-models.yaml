@@ -102,13 +102,39 @@ jobs:
               done
             fi
           fi
+          
+          # Create the matrix JSON
+          # Ensure we have a valid matrix even if no models were found
+          if [ ${#MODELS[@]} -eq 0 ]; then
+            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+          else
+            # Build matrix with combinations of models and modes
+            MATRIX_JSON="{"
+            MATRIX_JSON+="\"include\":["
+            
+            FIRST=true
+            for model in "${MODELS[@]}"; do
+              for mode in "${MODES[@]}"; do
+                if [ "$FIRST" = true ]; then
+                  FIRST=false
+                else
+                  MATRIX_JSON+=","
+                fi
+                MATRIX_JSON+="{\"model\":\"$model\",\"mode\":\"$mode\"}"
+              done
+            done
+            
+            MATRIX_JSON+="]}"
+            echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+            echo "Created matrix: $MATRIX_JSON"
+          fi
 
   build_and_push:
     needs: detect_changes
-    if: ${{ fromJSON(needs.detect_changes.outputs.matrix).include[0] != null }}
+    if: ${{ fromJson(needs.detect_changes.outputs.matrix).include[0] != null }}
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ fromJSON(needs.detect_changes.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.detect_changes.outputs.matrix) }}
       fail-fast: false
     
     steps:
@@ -118,7 +144,7 @@ jobs:
       - name: Set date environment variable
         run: echo "date=$(date '+%Y-%m-%d-%H%M')" >> $GITHUB_ENV
 
-            # Free up disk space for large Docker builds
+      # Free up disk space for large Docker builds
       - name: Free disk space
         run: |
           echo "Disk space before cleanup"
