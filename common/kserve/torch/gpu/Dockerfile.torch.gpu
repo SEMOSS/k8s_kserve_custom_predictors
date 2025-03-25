@@ -8,7 +8,7 @@ RUN poetry add torch==2.6.0 \
     torchaudio==2.6.0 \
     accelerate>=1.4.0 \
     paddleocr>=2.9.1 \
-    transformers>=4.49.0
+    transformers==4.49.0
 
 RUN poetry install --no-interaction --no-ansi --no-root
 
