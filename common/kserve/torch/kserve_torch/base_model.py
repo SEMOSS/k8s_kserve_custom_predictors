@@ -82,14 +82,25 @@ class BaseTorchModel(Model, abc.ABC):
     def decode_base64_image(self, base64_string: str) -> Image.Image:
         """Decode a base64 string into a PIL Image."""
         try:
-            if "base64," in base64_string:
-                base64_string = base64_string.split("base64,")[1]
+            if base64_string.startswith("data:"):
+                _, base64_data = base64_string.split(",", 1)
+                base64_string = base64_data
+
+            padding_needed = len(base64_string) % 4
+            if padding_needed:
+                base64_string += "=" * (4 - padding_needed)
 
             img_data = base64.b64decode(base64_string)
             img = Image.open(BytesIO(img_data))
+            self.logger.info(
+                f"Successfully decoded base64 image of size {len(img_data)} bytes"
+            )
             return img
         except Exception as e:
             self.logger.error(f"Error decoding base64 image: {e}")
+            self.logger.debug(
+                f"Base64 string length: {len(base64_string)}, First 50 chars: {base64_string[:50]}"
+            )
             raise ValueError(f"Failed to decode base64 image: {e}")
 
     def process_image_input(self, image_data: str) -> Image.Image:
