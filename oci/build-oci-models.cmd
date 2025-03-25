@@ -10,10 +10,10 @@ set ENV_FILE=%SCRIPT_DIR%.env
 if not exist "%ENV_FILE%" (
     echo ERROR: .env file not found at %ENV_FILE%
     echo Please create .env file with the following variables:
-    echo DOCKER_PRIVATE=docker.cfg.deloitte.com
+    :: echo DOCKER_PRIVATE=docker.cfg.deloitte.com
     echo DOCKER_SEMOSS=docker.semoss.org
-    echo DOCKER_USER=robot_gitlab-pusher
-    echo DOCKER_PASS=your_password
+    :: echo DOCKER_USER=robot_gitlab-pusher
+    :: echo DOCKER_PASS=your_password
     echo SEMOSS_DOCKER_USER=your_username
     echo SEMOSS_DOCKER_PASS=your_password
     exit /b 1
@@ -28,8 +28,8 @@ for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /format:list') do 
 set DATE_TAG=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%-%datetime:~8,4%
 
 :: Login to registries
-echo Logging in to Docker registry %DOCKER_PRIVATE%...
-docker login %DOCKER_PRIVATE% -u %DOCKER_USER% -p %DOCKER_PASS%
+:: echo Logging in to Docker registry %DOCKER_PRIVATE%...
+:: docker login %DOCKER_PRIVATE% -u %DOCKER_USER% -p %DOCKER_PASS%
 
 echo Logging in to Docker registry %DOCKER_SEMOSS%...
 docker login %DOCKER_SEMOSS% -u %SEMOSS_DOCKER_USER% -p %SEMOSS_DOCKER_PASS%
@@ -81,8 +81,8 @@ set MODEL_NAME=%1
 echo Building model: %MODEL_NAME%
 
 :: Create image names with organized structure
-set PRIVATE_IMAGE=%DOCKER_PRIVATE%/genai/cfg-ms-models/oci/%MODEL_NAME%:%DATE_TAG%
-set PRIVATE_LATEST=%DOCKER_PRIVATE%/genai/cfg-ms-models/oci/%MODEL_NAME%:latest
+:: set PRIVATE_IMAGE=%DOCKER_PRIVATE%/genai/cfg-ms-models/oci/%MODEL_NAME%:%DATE_TAG%
+:: set PRIVATE_LATEST=%DOCKER_PRIVATE%/genai/cfg-ms-models/oci/%MODEL_NAME%:latest
 set SEMOSS_IMAGE=%DOCKER_SEMOSS%/genai/cfg-ms-models/oci/%MODEL_NAME%:%DATE_TAG%
 set SEMOSS_LATEST=%DOCKER_SEMOSS%/genai/cfg-ms-models/oci/%MODEL_NAME%:latest
 
@@ -91,19 +91,19 @@ echo Building Docker image for %MODEL_NAME%...
 docker build ^
   --build-arg MODEL_PATH=%MODEL_NAME% ^
   --build-arg MODEL_NAME=%MODEL_NAME% ^
-  -t %PRIVATE_IMAGE% ^
+  -t %SEMOSS_IMAGE% ^
   -f %OCI_DIR%Dockerfile ^
   %OCI_DIR%
 
 :: Tag all the variants
-docker tag %PRIVATE_IMAGE% %PRIVATE_LATEST%
-docker tag %PRIVATE_IMAGE% %SEMOSS_IMAGE%
-docker tag %PRIVATE_IMAGE% %SEMOSS_LATEST%
+:: docker tag %PRIVATE_IMAGE% %PRIVATE_LATEST%
+:: docker tag %PRIVATE_IMAGE% %SEMOSS_IMAGE%
+docker tag %SEMOSS_IMAGE% %SEMOSS_LATEST%
 
 :: Push all images
 echo Pushing images for %MODEL_NAME%...
-docker push %PRIVATE_IMAGE%
-docker push %PRIVATE_LATEST%
+:: docker push %PRIVATE_IMAGE%
+:: docker push %PRIVATE_LATEST%
 docker push %SEMOSS_IMAGE%
 docker push %SEMOSS_LATEST%
 

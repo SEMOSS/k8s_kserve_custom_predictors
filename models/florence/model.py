@@ -132,16 +132,28 @@ class FlorenceModel(BaseTorchModel):
                 raise ValueError(f"Task input is required")
             task = task_input.data[0]
 
-            result = self._run_visual_tasks(image, task)
+            complete_result = self._run_visual_tasks(image, task)
 
-            self.logger.info(f"Result: {result}")
+            cleaned_result = None
+            if isinstance(complete_result, dict):
+                # For simple tasks like <CAPTION> that return string values
+                if task in complete_result:
+                    cleaned_result = complete_result[task]
+                # For complex tasks that return structured data (like bounding boxes)
+                elif task.strip() in complete_result:
+                    cleaned_result = complete_result[task.strip()]
+
+            if cleaned_result is None:
+                cleaned_result = complete_result
+
+            self.logger.info(f"Cleaned result: {cleaned_result}")
 
             output_list = [
                 InferOutput(
                     name="output",
                     datatype="BYTES",
                     shape=[1],
-                    data=[json.dumps(result)],
+                    data=[json.dumps(cleaned_result)],
                 ),
             ]
 
