@@ -21,6 +21,9 @@ ENV MODEL_ID=microsoft/Florence-2-large
 ENV PYTHONUNBUFFERED=1
 RUN mkdir -p /mnt/models
 
+ENV HF_HOME="/app/.cache/huggingface"
+ENV TRANSFORMERS_CACHE="/app/.cache/huggingface/transformers"
+
 EXPOSE 8080
 
 RUN python -c "import kserve_torch; print(f'kserve_torch package found at {kserve_torch.__file__}')"
