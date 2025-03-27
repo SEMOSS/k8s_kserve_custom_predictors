@@ -11,7 +11,7 @@ Florence-2-large is a powerful multimodal model that can perform various tasks:
 - `<MORE_DETAILED_CAPTION>`: Creates an exceptionally detailed caption, capturing intricate attributes and relationships within the image
 - `<OD>`: Detects objects in an image and provides their bounding box coordinates along with labels
 - `<DENSE_REGION_CAPTION>`: Generates captions for densely packed regions within an image, identifying multiple objects or areas simultaneously
-- `<REGIONAL_PROPOSAL>`: Suggests specific regions in an image that may contain objects or areas of interest for further analysis
+- `<REGION_PROPOSAL>`: Suggests specific regions in an image that may contain objects or areas of interest for further analysis
 - `<CAPTION_TO_PHRASE_GROUNDING> your_text_input`: Aligns phrases from a generated caption with specific regions in the image, enabling precise visual-textual mapping
 - `<REFERRING_EXPRESSION_SEGMENTATION> your_text_input`: Segments parts of an image based on textual descriptions of specific objects or regions
 - `<REGION_TO_SEGMENTATION> your_text_input`: Converts bounding boxes into segmentation masks to outline specific objects or areas within an image
@@ -55,7 +55,7 @@ The model supports two types of image inputs:
 POST /v2/models/florence-2-large/infer
 ```
 
-### Dense Region Caption Payload Example
+### Object Detection Payload Example
 ```json
 {
   "inputs": [
@@ -69,13 +69,13 @@ POST /v2/models/florence-2-large/infer
       "name": "text",
       "datatype": "BYTES",
       "shape": [1],
-      "data": ["<DENSE_REGION_CAPTION>"]
+      "data": ["<OD>"]
     }
   ]
 }
 ```
 
-#### Dense Region Caption Response Example
+#### Object Detection Response Example
 ```json
 {
     "model_name": "florence-2-large",
@@ -91,7 +91,9 @@ POST /v2/models/florence-2-large/infer
             "datatype": "BYTES",
             "parameters": null,
             "data": [
-                "{\"<DENSE_REGION_CAPTION>\": {\"bboxes\": [[33.599998474121094, 160.55999755859375, 596.7999877929688, 371.7599792480469], [271.67999267578125, 242.1599884033203, 302.3999938964844, 246.95999145507812]], \"labels\": [\"turquoise Volkswagen Beetle\", \"door handle\"]}}"
+                "{\"bboxes\": [[33.599998474121094, 160.55999755859375, 596.7999877929688, 371.7599792480469], [271.67999267578125, 242.1599884033203, 302.3999938964844, 246.95999145507812]], 
+                \"labels\": [\"turquoise Volkswagen Beetle\", \"door handle\"]",
+                \"overlay.png\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5fY51AAAgAElEQVR4nOzdeXxU1f7/8e9f...rest of the base64 string"\}"
             ]
         }
     ]
@@ -134,7 +136,7 @@ POST /v2/models/florence-2-large/infer
             "datatype": "BYTES",
             "parameters": null,
             "data": [
-                "{\"<CAPTION>\": \"a green volkswagen beetle parked in front of a yellow building\"}"
+                "{\"a green volkswagen beetle parked in front of a yellow building\"}"
             ]
         }
     ]

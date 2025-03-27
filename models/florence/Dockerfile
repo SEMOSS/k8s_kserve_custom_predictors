@@ -12,6 +12,8 @@ COPY models/florence/model.py ./model.py
 
 RUN poetry add timm \
     einops
+# This doesn't work with poetry and idk why
+RUN pip install matplotlib
 
 COPY common/kserve/torch /app/kserve-torch/
 RUN pip install -e /app/kserve-torch/

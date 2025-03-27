@@ -5,6 +5,12 @@ from PIL import Image
 import torch
 from transformers import AutoProcessor, AutoModelForCausalLM
 from kserve import InferRequest, InferOutput
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import numpy as np
+import io
+import base64
+import hashlib
 
 from kserve_torch import BaseTorchModel  # type: ignore
 
@@ -68,6 +74,60 @@ class FlorenceModel(BaseTorchModel):
         except Exception as e:
             self.logger.error(f"Error loading model: {e}", exc_info=True)
             raise
+
+    def create_visualization(self, image, bboxes, labels):
+        """Create visualization with bounding boxes overlaid on the image"""
+
+        fig, ax = plt.subplots(1, figsize=(10, 10))
+        ax.imshow(np.array(image))
+
+        def get_color_for_label(label_text):
+            label_hash = int(hashlib.md5(label_text.lower().encode()).hexdigest(), 16)
+
+            distinct_colors = [
+                "red",
+                "blue",
+                "green",
+                "purple",
+                "orange",
+                "cyan",
+                "magenta",
+                "lime",
+                "pink",
+                "teal",
+                "lavender",
+                "brown",
+                "olive",
+                "navy",
+                "maroon",
+                "gold",
+            ]
+
+            color_index = label_hash % len(distinct_colors)
+            return distinct_colors[color_index]
+
+        for bbox, label in zip(bboxes, labels):
+            x, y, x2, y2 = bbox
+            width = x2 - x
+            height = y2 - y
+
+            color = get_color_for_label(label)
+
+            rect = patches.Rectangle(
+                (x, y), width, height, linewidth=2, edgecolor=color, facecolor="none"
+            )
+            ax.add_patch(rect)
+            plt.text(x, y - 5, label, color=color, fontsize=12, weight="bold")
+
+        plt.axis("off")
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
+        plt.close(fig)
+        buf.seek(0)
+
+        img_str = base64.b64encode(buf.read()).decode("utf-8")
+        return f"data:image/png;base64,{img_str}"
 
     def _run_visual_tasks(self, image: Image.Image, task: str):
         """Perform visual tasks."""
@@ -147,6 +207,20 @@ class FlorenceModel(BaseTorchModel):
                 cleaned_result = complete_result
 
             self.logger.info(f"Cleaned result: {cleaned_result}")
+
+            overlay_image = None
+            if (
+                isinstance(cleaned_result, dict)
+                and "bboxes" in cleaned_result
+                and "labels" in cleaned_result
+            ):
+                bboxes = cleaned_result["bboxes"]
+                labels = cleaned_result["labels"]
+                if bboxes and labels and len(bboxes) == len(labels):
+                    overlay_image = self.create_visualization(image, bboxes, labels)
+
+            if overlay_image:
+                cleaned_result["overlay.png"] = overlay_image
 
             output_list = [
                 InferOutput(
