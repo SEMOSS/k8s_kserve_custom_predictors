@@ -31,6 +31,7 @@ class KokoroModel(BaseTorchModel):
                 model_specific_path = os.path.join(
                     self.model_files_base_path, "kokoro-82m"
                 )
+
                 config_path = os.path.join(model_specific_path, "config.json")
                 model_path_v1 = os.path.join(model_specific_path, "kokoro-v1_0.pth")
                 model_path_v1_1 = os.path.join(
