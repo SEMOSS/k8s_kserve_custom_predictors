@@ -3,9 +3,9 @@ from huggingface_hub import snapshot_download
 
 def download_model_files():
 
-    model_repo_id = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+    model_repo_id = "hexgrad/Kokoro-82M"
 
-    short_name = "stable-diffusion-v1-5"
+    short_name = "kokoro-82m"
 
     local_model_dir = f"./oci/{short_name}"
 

@@ -5,7 +5,7 @@ description = "CFG Model Service Base Image for GPU"
 authors = ["Ryan Weiler <rweiler@deloitte.com>"]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.10,<3.13"
 fastapi = {extras = ["standard"], version = ">=0.115.11,<0.116.0"}
 pydantic = ">=2.10.6,<3.0.0"
 pydantic-settings = ">=2.8.1,<3.0.0"
