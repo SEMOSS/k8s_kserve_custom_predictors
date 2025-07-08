@@ -13,6 +13,8 @@ COPY models/kokoro/model.py ./model.py
 
 RUN poetry add kokoro soundfile librosa 
 
+RUN poetry run python -m spacy download en_core_web_sm
+
 COPY common/kserve/torch /app/kserve-torch/
 RUN pip install -e /app/kserve-torch/
 
