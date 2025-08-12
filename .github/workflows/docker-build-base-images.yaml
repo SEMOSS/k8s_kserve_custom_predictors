@@ -105,16 +105,9 @@ jobs:
       - name: Docker login (Private Registry)
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.DOCKER_PRIVATE }}
+          registry: ${{ vars.DOCKER_CONTAINER_SEMOSS }}
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
-      
-      - name: Docker login (SEMOSS Registry)
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.DOCKER_SEMOSS }}
-          username: ${{ secrets.SEMOSS_DOCKER_USER }}
-          password: ${{ secrets.SEMOSS_DOCKER_PASS }}
       
       - name: Build and push Docker image for base-${{ matrix.base_image }}
         run: |
@@ -124,12 +117,10 @@ jobs:
           echo "Building base Docker image for $BASE_TYPE"
           
           # Define image names with timestamps
-          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-base/$BASE_TYPE:${{ env.date }}"
-          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-base/$BASE_TYPE:${{ env.date }}"
+          PRIVATE_IMAGE="${{ vars.DOCKER_CONTAINER_SEMOSS}}/genai/cfg-ms-base/$BASE_TYPE:${{ env.date }}"
           
           # Also create latest tags
-          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-base/$BASE_TYPE:latest"
-          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-base/$BASE_TYPE:latest"
+          PRIVATE_LATEST="${{ vars.DOCKER_CONTAINER_SEMOSS }}/genai/cfg-ms-base/$BASE_TYPE:latest"
           
           # Build the Docker image from the root directory
           # This matches how you run it locally
@@ -137,13 +128,9 @@ jobs:
           
           # Tag the images
           docker tag $PRIVATE_IMAGE $PRIVATE_LATEST
-          docker tag $PRIVATE_IMAGE $SEMOSS_IMAGE
-          docker tag $SEMOSS_IMAGE $SEMOSS_LATEST
           
           # Push all the images
           docker push $PRIVATE_IMAGE
           docker push $PRIVATE_LATEST
-          docker push $SEMOSS_IMAGE
-          docker push $SEMOSS_LATEST
           
           echo "Successfully built and pushed base images for $BASE_TYPE"
