@@ -176,16 +176,10 @@ jobs:
       - name: Docker login (Private Registry)
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.DOCKER_PRIVATE }}
+          registry: ${{ vars.DOCKER_CONTAINER_SEMOSS }}
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       
-      - name: Docker login (SEMOSS Registry)
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.DOCKER_SEMOSS }}
-          username: ${{ secrets.SEMOSS_DOCKER_USER }}
-          password: ${{ secrets.SEMOSS_DOCKER_PASS }}
       
       - name: Build and push Docker image for ${{ matrix.model }}-${{ matrix.mode }}
         run: |
@@ -196,15 +190,13 @@ jobs:
           echo "Building model Docker image for $MODEL ($MODE)"
           
           # Define image names with timestamps
-          PRIVATE_IMAGE="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-models/$MODEL-$MODE:${{ env.date }}"
-          SEMOSS_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-models/$MODEL-$MODE:${{ env.date }}"
+          PRIVATE_IMAGE="${{ vars.DOCKER_CONTAINER_SEMOSS }}/genai/cfg-ms-models/$MODEL-$MODE:${{ env.date }}"
           
           # Also create latest tags
-          PRIVATE_LATEST="${{ vars.DOCKER_PRIVATE }}/genai/cfg-ms-models/$MODEL-$MODE:latest"
-          SEMOSS_LATEST="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-models/$MODEL-$MODE:latest"
+          PRIVATE_LATEST="${{ vars.DOCKER_CONTAINER_SEMOSS }}/genai/cfg-ms-models/$MODEL-$MODE:latest"
           
           # Define complete base image path
-          BASE_IMAGE="${{ vars.DOCKER_SEMOSS }}/genai/cfg-ms-torch/$MODE:latest"
+          BASE_IMAGE="${{ vars.DOCKER_CONTAINER_SEMOSS }}/genai/cfg-ms-torch/$MODE:latest"
           
           # Build the Docker image
           docker build \
@@ -217,12 +209,9 @@ jobs:
           # Tag the images
           docker tag $PRIVATE_IMAGE $PRIVATE_LATEST
           docker tag $PRIVATE_IMAGE $SEMOSS_IMAGE
-          docker tag $SEMOSS_IMAGE $SEMOSS_LATEST
           
           # Push all the images
           docker push $PRIVATE_IMAGE
           docker push $PRIVATE_LATEST
-          docker push $SEMOSS_IMAGE
-          docker push $SEMOSS_LATEST
           
           echo "Successfully built and pushed model image for $MODEL ($MODE)"
