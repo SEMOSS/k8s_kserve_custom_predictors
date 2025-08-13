@@ -116,6 +116,13 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       
+      # ADD THIS STEP: Pull the base image explicitly
+      - name: Pull base image
+        run: |
+          BASE_IMAGE="${{ vars.DOCKER_CONTAINER_SEMOSS }}/genai/cfg-ms-base/${{ matrix.torch_type }}:latest"
+          echo "Pulling base image: $BASE_IMAGE"
+          docker pull $BASE_IMAGE
+      
       - name: Build and push Docker image for torch-${{ matrix.torch_type }}
         run: |
           # Define image details
