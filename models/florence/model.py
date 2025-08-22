@@ -5,14 +5,39 @@ from PIL import Image
 import torch
 from transformers import AutoProcessor, AutoModelForCausalLM
 from kserve import InferRequest, InferOutput
+from pydantic import BaseModel
+import kserve
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import io
 import base64
 import hashlib
+from fastapi import Depends, HTTPException
 
 from kserve_torch import BaseTorchModel  # type: ignore
+
+app = kserve.model_server.app
+
+
+def get_florence_model():
+    if not hasattr(app.state, "florence_model") or app.state.florence_model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    return app.state.florence_model
+
+
+class GenerateRequest(BaseModel):
+    text: str
+    image: str
+
+
+@app.post("v3/generate")
+async def generate(request: GenerateRequest, model=Depends(get_florence_model)):
+    try:
+        result = await model.process_standard_request(request)
+        return {"result": result, "status": "success"}
+    except Exception as e:
+        return {"error": str(e), "status": "error"}
 
 
 class FlorenceModel(BaseTorchModel):
@@ -22,6 +47,7 @@ class FlorenceModel(BaseTorchModel):
         self.tasks = {}
 
         super().__init__(name)
+        app.state.florence_model = self
 
     def load(self) -> None:
         """Load the Florence model from local storage or HuggingFace Hub"""
@@ -166,6 +192,48 @@ class FlorenceModel(BaseTorchModel):
         except Exception as e:
             self.logger.error(f"Error during task handling: {e}", exc_info=True)
             return {"error": f"Error generating answer: {str(e)}"}
+
+    async def process_standard_request(
+        self, request: GenerateRequest
+    ) -> Dict[str, Any]:
+        if not request.text or not request.image:
+            raise ValueError("Both 'text' and 'image' fields are required.")
+
+        image = self.process_image_input(request.image)
+
+        task = request.text
+
+        result = self._run_visual_tasks(image, task)
+
+        cleaned_result = None
+        if isinstance(result, dict):
+            # For simple tasks like <CAPTION> that return string values
+            if task in result:
+                cleaned_result = result[task]
+            # For complex tasks that return structured data (like bounding boxes)
+            elif task.strip() in result:
+                cleaned_result = result[task.strip()]
+
+        if cleaned_result is None:
+            cleaned_result = result
+
+        self.logger.info(f"Cleaned result: {cleaned_result}")
+
+        overlay_image = None
+        if (
+            isinstance(cleaned_result, dict)
+            and "bboxes" in cleaned_result
+            and "labels" in cleaned_result
+        ):
+            bboxes = cleaned_result["bboxes"]
+            labels = cleaned_result["labels"]
+            if bboxes and labels and len(bboxes) == len(labels):
+                overlay_image = self.create_visualization(image, bboxes, labels)
+
+        if overlay_image:
+            cleaned_result["overlay.png"] = overlay_image
+
+        return cleaned_result
 
     async def process_request(
         self, request: InferRequest
