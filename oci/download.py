@@ -3,9 +3,9 @@ from huggingface_hub import snapshot_download
 
 def download_model_files():
 
-    model_repo_id = "openai/whisper-large-v3"
+    model_repo_id = "apple/FastVLM-0.5B"
 
-    short_name = "whisper-large-v3"
+    short_name = "fast-vlm-0-5-b"
 
     local_model_dir = f"./oci/{short_name}"
 

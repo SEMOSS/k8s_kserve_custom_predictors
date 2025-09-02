@@ -1,0 +1,40 @@
+ARG BASE_IMAGE=cfg-ms-base-gpu:latest
+FROM ${BASE_IMAGE}
+
+WORKDIR /app
+
+# Keep PyTorch 2.6.0 and use alternative optimizations
+RUN poetry add torch \
+    torchvision \
+    torchaudio \
+    accelerate \
+    paddleocr>=2.9.1 \
+    transformers \
+    ninja \
+    packaging \
+    optimum 
+
+RUN poetry install --no-interaction --no-ansi --no-root
+
+
+RUN pip install --no-cache-dir flash-attn --no-build-isolation
+
+# Copy the kserve_torch package
+COPY common/kserve/torch /app/kserve-torch/
+
+# Install the package
+RUN pip install -e /app/kserve-torch/
+
+# Set HuggingFace cache directories explicitly
+ENV HF_HOME="/app/.cache/huggingface"
+ENV TRANSFORMERS_CACHE="/app/.cache/huggingface/transformers"
+
+# Ensure cache directories exist with appropriate permissions
+RUN mkdir -p ${HF_HOME} ${TRANSFORMERS_CACHE} && chmod -R 777 /app/.cache
+
+# Verify the packages are installed
+RUN python -c "import kserve_torch; print(f'kserve_torch package found at {kserve_torch.__file__}')"
+RUN python -c "import xformers; print(f'xformers version: {xformers.__version__}')"
+
+# Verify optimizations work
+RUN python -c "import torch; import xformers; print(f'PyTorch: {torch.__version__}, xformers: {xformers.__version__}, CUDA available: {torch.cuda.is_available()}')"

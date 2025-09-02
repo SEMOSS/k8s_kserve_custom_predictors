@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04 AS cfg-ms-base-gpu
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS cfg-ms-base-gpu
 
 WORKDIR /app
 
@@ -24,6 +24,11 @@ ENV POETRY_NO_INTERACTION=1 \
     POETRY_CACHE_DIR='/var/cache/pypoetry' \
     POETRY_HOME='/usr/local' \
     POETRY_VERSION=2.1.1
+
+# Set CUDA environment variables (should be set by default but being explicit)
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 
 RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
