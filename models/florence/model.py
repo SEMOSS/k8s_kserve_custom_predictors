@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from typing import Dict, List, Any, Tuple
 from PIL import Image
 import torch
@@ -38,6 +39,21 @@ async def generate(request: GenerateRequest, model=Depends(get_florence_model)):
         return {"result": result, "status": "success"}
     except Exception as e:
         return {"error": str(e), "status": "error"}
+
+
+# -------------------------
+# Helpers for Florence tasks
+# -------------------------
+
+
+def extract_task_token(task: str) -> str:
+    """Return the leading <TASK_TOKEN> from a prompt like "<OD>" or "<REFERRING_EXPRESSION_SEGMENTATION> dog".
+    Raises if none found.
+    """
+    m = re.match(r"\s*(<[^>]+>)", task)
+    if not m:
+        raise ValueError(f"Task token not found in: {task}")
+    return m.group(1)
 
 
 class FlorenceModel(BaseTorchModel):
@@ -155,9 +171,59 @@ class FlorenceModel(BaseTorchModel):
         img_str = base64.b64encode(buf.read()).decode("utf-8")
         return f"data:image/png;base64,{img_str}"
 
+    def create_polygon_visualization(self, image, polygons, labels=None):
+        """Create visualization overlay for polygon masks (list of list-of-rings)."""
+        fig, ax = plt.subplots(1, figsize=(10, 10))
+        ax.imshow(np.array(image))
+
+        def get_color(idx: int):
+            palette = [
+                "red",
+                "blue",
+                "green",
+                "purple",
+                "orange",
+                "cyan",
+                "magenta",
+                "lime",
+                "pink",
+                "teal",
+                "brown",
+                "olive",
+            ]
+            return palette[idx % len(palette)]
+
+        for i, poly in enumerate(polygons or []):
+            color = get_color(i)
+            # Florence polygons often come as [[x1,y1,x2,y2,...], ...] (rings)
+            for ring in poly or []:
+                xs = ring[0::2]
+                ys = ring[1::2]
+                # close loop
+                if len(xs) > 0 and len(ys) > 0:
+                    ax.plot(xs + [xs[0]], ys + [ys[0]], linewidth=2, color=color)
+            if labels and i < len(labels):
+                # label near first point of first ring if present
+                if poly and poly[0]:
+                    x0 = poly[0][0]
+                    y0 = poly[0][1]
+                    ax.text(
+                        x0, y0 - 5, labels[i], fontsize=12, weight="bold", color=color
+                    )
+
+        ax.axis("off")
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
+        plt.close(fig)
+        buf.seek(0)
+        return "data:image/png;base64," + base64.b64encode(buf.read()).decode("utf-8")
+
     def _run_visual_tasks(self, image: Image.Image, task: str):
         """Perform visual tasks."""
         self.logger.info(f"Using prompt: {task}")
+
+        # ---- IMPORTANT: token-only for post_process_generation
+        task_token = extract_task_token(task)
 
         inputs = self.processor(text=task, images=image, return_tensors="pt").to(
             self.device
@@ -181,12 +247,11 @@ class FlorenceModel(BaseTorchModel):
             )[0]
             parsed_answer = self.processor.post_process_generation(
                 text_generations,
-                task=task,
+                task=task_token,  # <-- token only
                 image_size=(image.width, image.height),
             )
 
-            self.logger.info(f"Parsed answer type: {type(parsed_answer)}")
-
+            self.logger.info(f"post_process keys: {list(parsed_answer.keys())}")
             return parsed_answer
 
         except Exception as e:
@@ -200,35 +265,48 @@ class FlorenceModel(BaseTorchModel):
             raise ValueError("Both 'text' and 'image' fields are required.")
 
         image = self.process_image_input(request.image)
-
         task = request.text
+        task_token = extract_task_token(task)
 
         result = self._run_visual_tasks(image, task)
 
+        # ---- Clean selection using token-only key
         cleaned_result = None
         if isinstance(result, dict):
-            # For simple tasks like <CAPTION> that return string values
-            if task in result:
-                cleaned_result = result[task]
-            # For complex tasks that return structured data (like bounding boxes)
-            elif task.strip() in result:
-                cleaned_result = result[task.strip()]
+            if task_token in result:
+                cleaned_result = result[task_token]
+            else:
+                # Fallback: any key that starts with the token
+                for k, v in result.items():
+                    if isinstance(k, str) and k.startswith(task_token):
+                        cleaned_result = v
+                        break
 
         if cleaned_result is None:
             cleaned_result = result
 
-        self.logger.info(f"Cleaned result: {cleaned_result}")
+        self.logger.info(f"Cleaned result: {type(cleaned_result)}")
 
+        # ---- Overlay for bboxes or polygons
         overlay_image = None
-        if (
-            isinstance(cleaned_result, dict)
-            and "bboxes" in cleaned_result
-            and "labels" in cleaned_result
-        ):
-            bboxes = cleaned_result["bboxes"]
-            labels = cleaned_result["labels"]
-            if bboxes and labels and len(bboxes) == len(labels):
+        if isinstance(cleaned_result, dict):
+            has_boxes = (
+                bool(cleaned_result.get("bboxes"))
+                and cleaned_result.get("labels") is not None
+            )
+            has_polys = bool(cleaned_result.get("polygons"))
+
+            if has_boxes:
+                bboxes = cleaned_result["bboxes"]
+                labels = cleaned_result.get("labels", [])
                 overlay_image = self.create_visualization(image, bboxes, labels)
+
+            elif has_polys:
+                polygons = cleaned_result["polygons"]
+                labels = cleaned_result.get("labels", [])
+                overlay_image = self.create_polygon_visualization(
+                    image, polygons, labels
+                )
 
         if overlay_image:
             cleaned_result["overlay.png"] = overlay_image
@@ -251,7 +329,7 @@ class FlorenceModel(BaseTorchModel):
 
             image_data = image_input.data[0]
             self.logger.info(
-                f"Processing image input (type: {'URL' if image_data.startswith(('http://', 'https://')) else 'base64'})"
+                f"Processing image input (type: {'URL' if isinstance(image_data, str) and image_data.startswith(('http://', 'https://')) else 'base64'})"
             )
             image = self.process_image_input(image_data)
 
@@ -259,33 +337,46 @@ class FlorenceModel(BaseTorchModel):
             if task_input is None:
                 raise ValueError(f"Task input is required")
             task = task_input.data[0]
+            task_token = extract_task_token(task)
 
             complete_result = self._run_visual_tasks(image, task)
 
+            # ---- Clean selection using token-only key
             cleaned_result = None
             if isinstance(complete_result, dict):
-                # For simple tasks like <CAPTION> that return string values
-                if task in complete_result:
-                    cleaned_result = complete_result[task]
-                # For complex tasks that return structured data (like bounding boxes)
-                elif task.strip() in complete_result:
-                    cleaned_result = complete_result[task.strip()]
+                if task_token in complete_result:
+                    cleaned_result = complete_result[task_token]
+                else:
+                    for k, v in complete_result.items():
+                        if isinstance(k, str) and k.startswith(task_token):
+                            cleaned_result = v
+                            break
 
             if cleaned_result is None:
                 cleaned_result = complete_result
 
-            self.logger.info(f"Cleaned result: {cleaned_result}")
+            self.logger.info(f"Cleaned result type: {type(cleaned_result)}")
 
+            # ---- Overlay for bboxes or polygons
             overlay_image = None
-            if (
-                isinstance(cleaned_result, dict)
-                and "bboxes" in cleaned_result
-                and "labels" in cleaned_result
-            ):
-                bboxes = cleaned_result["bboxes"]
-                labels = cleaned_result["labels"]
-                if bboxes and labels and len(bboxes) == len(labels):
+            if isinstance(cleaned_result, dict):
+                has_boxes = (
+                    bool(cleaned_result.get("bboxes"))
+                    and cleaned_result.get("labels") is not None
+                )
+                has_polys = bool(cleaned_result.get("polygons"))
+
+                if has_boxes:
+                    bboxes = cleaned_result["bboxes"]
+                    labels = cleaned_result.get("labels", [])
                     overlay_image = self.create_visualization(image, bboxes, labels)
+
+                elif has_polys:
+                    polygons = cleaned_result["polygons"]
+                    labels = cleaned_result.get("labels", [])
+                    overlay_image = self.create_polygon_visualization(
+                        image, polygons, labels
+                    )
 
             if overlay_image:
                 cleaned_result["overlay.png"] = overlay_image
