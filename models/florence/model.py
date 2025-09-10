@@ -247,7 +247,7 @@ class FlorenceModel(BaseTorchModel):
             )[0]
             parsed_answer = self.processor.post_process_generation(
                 text_generations,
-                task=task_token,  # <-- token only
+                task=task_token,
                 image_size=(image.width, image.height),
             )
 
@@ -264,13 +264,15 @@ class FlorenceModel(BaseTorchModel):
         if not request.text or not request.image:
             raise ValueError("Both 'text' and 'image' fields are required.")
 
+        # Prepare inputs
         image = self.process_image_input(request.image)
         task = request.text
         task_token = extract_task_token(task)
 
+        # Run model + postprocess (token-only)
         result = self._run_visual_tasks(image, task)
 
-        # ---- Clean selection using token-only key
+        # Select the right sub-object using the token key
         cleaned_result = None
         if isinstance(result, dict):
             if task_token in result:
@@ -281,29 +283,31 @@ class FlorenceModel(BaseTorchModel):
                     if isinstance(k, str) and k.startswith(task_token):
                         cleaned_result = v
                         break
-
         if cleaned_result is None:
-            cleaned_result = result
-
-        self.logger.info(f"Cleaned result: {type(cleaned_result)}")
+            cleaned_result = result  # last resort (shouldn't normally happen)
 
         # ---- Overlay for bboxes or polygons
         overlay_image = None
         if isinstance(cleaned_result, dict):
-            has_boxes = (
-                bool(cleaned_result.get("bboxes"))
-                and cleaned_result.get("labels") is not None
-            )
+            has_boxes = bool(cleaned_result.get("bboxes"))
             has_polys = bool(cleaned_result.get("polygons"))
 
             if has_boxes:
-                bboxes = cleaned_result["bboxes"]
-                labels = cleaned_result.get("labels", [])
+                bboxes = cleaned_result.get("bboxes", [])
+                labels = (
+                    cleaned_result.get("labels")
+                    or cleaned_result.get("bboxes_labels")
+                    or [""] * len(bboxes)
+                )
                 overlay_image = self.create_visualization(image, bboxes, labels)
 
             elif has_polys:
-                polygons = cleaned_result["polygons"]
-                labels = cleaned_result.get("labels", [])
+                polygons = cleaned_result.get("polygons", [])
+                labels = (
+                    cleaned_result.get("labels")
+                    or cleaned_result.get("polygons_labels")
+                    or [""] * len(polygons)
+                )
                 overlay_image = self.create_polygon_visualization(
                     image, polygons, labels
                 )
@@ -316,32 +320,28 @@ class FlorenceModel(BaseTorchModel):
     async def process_request(
         self, request: InferRequest
     ) -> Tuple[List[InferOutput], Dict[str, Any]]:
-        """Process Florence model inference request"""
         try:
             inputs = request.inputs
 
-            input_names = [inp.name for inp in inputs]
-            self.logger.info(f"Request inputs: {input_names}")
-
+            # Pull inputs
             image_input = next((inp for inp in inputs if inp.name == "image"), None)
             if image_input is None:
-                raise ValueError(f"Task requires an 'image' input")
-
-            image_data = image_input.data[0]
-            self.logger.info(
-                f"Processing image input (type: {'URL' if isinstance(image_data, str) and image_data.startswith(('http://', 'https://')) else 'base64'})"
-            )
-            image = self.process_image_input(image_data)
+                raise ValueError("Task requires an 'image' input")
 
             task_input = next((inp for inp in inputs if inp.name == "text"), None)
             if task_input is None:
-                raise ValueError(f"Task input is required")
+                raise ValueError("Task input is required")
+
+            image_data = image_input.data[0]
+            image = self.process_image_input(image_data)
+
             task = task_input.data[0]
             task_token = extract_task_token(task)
 
+            # Run model + postprocess (token-only)
             complete_result = self._run_visual_tasks(image, task)
 
-            # ---- Clean selection using token-only key
+            # Select the right sub-object using the token key
             cleaned_result = None
             if isinstance(complete_result, dict):
                 if task_token in complete_result:
@@ -351,29 +351,31 @@ class FlorenceModel(BaseTorchModel):
                         if isinstance(k, str) and k.startswith(task_token):
                             cleaned_result = v
                             break
-
             if cleaned_result is None:
                 cleaned_result = complete_result
-
-            self.logger.info(f"Cleaned result type: {type(cleaned_result)}")
 
             # ---- Overlay for bboxes or polygons
             overlay_image = None
             if isinstance(cleaned_result, dict):
-                has_boxes = (
-                    bool(cleaned_result.get("bboxes"))
-                    and cleaned_result.get("labels") is not None
-                )
+                has_boxes = bool(cleaned_result.get("bboxes"))
                 has_polys = bool(cleaned_result.get("polygons"))
 
                 if has_boxes:
-                    bboxes = cleaned_result["bboxes"]
-                    labels = cleaned_result.get("labels", [])
+                    bboxes = cleaned_result.get("bboxes", [])
+                    labels = (
+                        cleaned_result.get("labels")
+                        or cleaned_result.get("bboxes_labels")
+                        or [""] * len(bboxes)
+                    )
                     overlay_image = self.create_visualization(image, bboxes, labels)
 
                 elif has_polys:
-                    polygons = cleaned_result["polygons"]
-                    labels = cleaned_result.get("labels", [])
+                    polygons = cleaned_result.get("polygons", [])
+                    labels = (
+                        cleaned_result.get("labels")
+                        or cleaned_result.get("polygons_labels")
+                        or [""] * len(polygons)
+                    )
                     overlay_image = self.create_polygon_visualization(
                         image, polygons, labels
                     )
@@ -381,15 +383,15 @@ class FlorenceModel(BaseTorchModel):
             if overlay_image:
                 cleaned_result["overlay.png"] = overlay_image
 
+            # KServe v2 response
             output_list = [
                 InferOutput(
                     name="output",
                     datatype="BYTES",
                     shape=[1],
                     data=[json.dumps(cleaned_result)],
-                ),
+                )
             ]
-
             return output_list, {}
 
         except Exception as e:
