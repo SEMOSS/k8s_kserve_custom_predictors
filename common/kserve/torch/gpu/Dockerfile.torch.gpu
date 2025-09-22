@@ -3,12 +3,12 @@ FROM ${BASE_IMAGE}
 
 WORKDIR /app
 
-RUN poetry add torch==2.6.0 \
-    torchvision==0.21.0 \
-    torchaudio==2.6.0 \
-    accelerate>=1.4.0 \
-    paddleocr>=2.9.1 \
-    transformers==4.49.0
+RUN poetry add torch==2.8.0 \
+    torchvision==0.23.0 \
+    torchaudio==2.8.0 \
+    accelerate>=1.10.1 \
+    paddleocr>=3.2.0 \
+    transformers==4.56.1
 
 RUN poetry install --no-interaction --no-ansi --no-root
 

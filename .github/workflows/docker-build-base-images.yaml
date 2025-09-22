@@ -1,18 +1,6 @@
 name: Docker Build Base Images
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'common/base/cpu/**'
-      - 'common/base/gpu/**'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'common/base/cpu/**'
-      - 'common/base/gpu/**'
   workflow_dispatch:
     inputs:
       base_images:
@@ -29,7 +17,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for detecting changes
+          fetch-depth: 0
       
       - name: Detect changed base image directories
         id: set-matrix
@@ -50,21 +38,8 @@ jobs:
               fi
             done
           else
-            # Check for changes in the CPU directory
-            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-              # If this is a PR, compare with the base branch
-              if [ "${{ github.event_name }}" == "pull_request" ]; then
-                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/base/cpu/" && BASE_IMAGES+=("cpu")
-                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/base/gpu/" && BASE_IMAGES+=("gpu")
-              else
-                # For push events, compare with the previous commit
-                git diff --name-only HEAD^ HEAD | grep -q "^common/base/cpu/" && BASE_IMAGES+=("cpu")
-                git diff --name-only HEAD^ HEAD | grep -q "^common/base/gpu/" && BASE_IMAGES+=("gpu")
-              fi
-            else
-              # For manual runs without specific base images, include both
-              BASE_IMAGES+=("cpu" "gpu")
-            fi
+            # For manual runs without specific base images, include both
+            BASE_IMAGES+=("cpu" "gpu")
           fi
           
           # Create JSON matrix using proper JSON formatting

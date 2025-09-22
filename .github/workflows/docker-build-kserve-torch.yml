@@ -1,16 +1,6 @@
 name: Docker Build KServe Torch Images
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'common/kserve/torch/**'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'common/kserve/torch/**'
   workflow_dispatch:
     inputs:
       torch_images:
@@ -27,9 +17,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for detecting changes
+          fetch-depth: 0
       
-      - name: Detect changed torch image directories
+      - name: Detect torch image directories to build
         id: set-matrix
         run: |
           # Initialize torch images array
@@ -48,27 +38,8 @@ jobs:
               fi
             done
           else
-            # Check for changes in the torch directories
-            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-              # If this is a PR, compare with the base branch
-              if [ "${{ github.event_name }}" == "pull_request" ]; then
-                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/cpu/" && TORCH_IMAGES+=("cpu")
-                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/gpu/" && TORCH_IMAGES+=("gpu")
-                # Check for changes in shared code that would affect both images
-                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/kserve_torch/" && TORCH_IMAGES+=("cpu" "gpu")
-                git diff --name-only origin/${{ github.base_ref }} HEAD | grep -q "^common/kserve/torch/setup.py" && TORCH_IMAGES+=("cpu" "gpu")
-              else
-                # For push events, compare with the previous commit
-                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/cpu/" && TORCH_IMAGES+=("cpu")
-                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/gpu/" && TORCH_IMAGES+=("gpu")
-                # Check for changes in shared code that would affect both images
-                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/kserve_torch/" && TORCH_IMAGES+=("cpu" "gpu")
-                git diff --name-only HEAD^ HEAD | grep -q "^common/kserve/torch/setup.py" && TORCH_IMAGES+=("cpu" "gpu")
-              fi
-            else
-              # For manual runs without specific torch images, include both
-              TORCH_IMAGES+=("cpu" "gpu")
-            fi
+            # For manual runs without specific torch images, include both
+            TORCH_IMAGES+=("cpu" "gpu")
           fi
           
           # Remove duplicates
@@ -78,7 +49,7 @@ jobs:
           if [ ${#TORCH_IMAGES[@]} -eq 0 ]; then
             # If no changes detected, create an empty array
             echo "matrix={\"torch_type\":[]}" >> $GITHUB_OUTPUT
-            echo "No torch image directories with changes detected."
+            echo "No torch image directories specified."
           else
             # Generate a properly formatted JSON string for the matrix
             JSON_ARRAY="["
@@ -91,7 +62,7 @@ jobs:
             JSON_ARRAY+="]"
             
             echo "matrix={\"torch_type\":$JSON_ARRAY}" >> $GITHUB_OUTPUT
-            echo "Detected changes in torch image directories: ${TORCH_IMAGES[@]}"
+            echo "Building torch images for: ${TORCH_IMAGES[@]}"
           fi
 
   build_and_push:
@@ -116,7 +87,6 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       
-      # ADD THIS STEP: Pull the base image explicitly
       - name: Pull base image
         run: |
           BASE_IMAGE="${{ vars.DOCKER_CONTAINER_SEMOSS }}/genai/cfg-ms-base/${{ matrix.torch_type }}:latest"

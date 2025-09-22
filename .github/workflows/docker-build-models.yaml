@@ -1,26 +1,16 @@
 name: Docker Build Model Images
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'models/**'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'models/**'
   workflow_dispatch:
     inputs:
       model_names:
-        description: 'Comma-separated list of model names to build (e.g., gliner,other_model)'
+        description: 'Comma-separated list of model names to build (e.g., gliner,florence,other_model or leave empty for all)'
         required: false
         default: ''
       modes:
         description: 'Comma-separated list of modes to build (cpu,gpu or leave empty for both)'
         required: false
-        default: 'cpu'
+        default: ''
 
 jobs:
   detect_changes:
@@ -31,9 +21,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for detecting changes
+          fetch-depth: 0
       
-      - name: Detect changed model directories
+      - name: Detect model directories to build
         id: set-matrix
         run: |
           # Initialize arrays for models and modes
@@ -68,45 +58,18 @@ jobs:
               fi
             done
           else
-            # Check for changes in the models directories
-            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-              # Get all model directories
-              for dir in models/*/; do
-                # Extract just the model name from the path
-                model_name=$(basename "$dir")
-                
-                # If this is a PR, compare with the base branch
-                if [ "${{ github.event_name }}" == "pull_request" ]; then
-                  # Get all changed files for this model
-                  CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep "^models/$model_name/" || echo "")
-                  # If there are changed files and they're not just README.md
-                  if [ ! -z "$CHANGED_FILES" ] && \
-                      (echo "$CHANGED_FILES" | grep -v "README.md" | grep -q "."); then
-                    MODELS+=("$model_name")
-                  fi
-                else
-                  # For push events, compare with the previous commit
-                  CHANGED_FILES=$(git diff --name-only HEAD^ HEAD | grep "^models/$model_name/" || echo "")
-                  # If there are changed files and they're not just README.md
-                  if [ ! -z "$CHANGED_FILES" ] && \
-                      (echo "$CHANGED_FILES" | grep -v "README.md" | grep -q "."); then
-                    MODELS+=("$model_name")
-                  fi
-                fi
-              done
-            else
-              # For manual runs without specific model names, include all models
-              for dir in models/*/; do
-                model_name=$(basename "$dir")
-                MODELS+=("$model_name")
-              done
-            fi
+            # For manual runs without specific model names, include all models
+            for dir in models/*/; do
+              model_name=$(basename "$dir")
+              MODELS+=("$model_name")
+            done
           fi
           
           # Create the matrix JSON
           # Ensure we have a valid matrix even if no models were found
           if [ ${#MODELS[@]} -eq 0 ]; then
             echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            echo "No model directories found or specified."
           else
             # Build matrix with combinations of models and modes
             MATRIX_JSON="{"
@@ -126,7 +89,7 @@ jobs:
             
             MATRIX_JSON+="]}"
             echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
-            echo "Created matrix: $MATRIX_JSON"
+            echo "Building models: ${MODELS[@]} with modes: ${MODES[@]}"
           fi
 
   build_and_push:
@@ -144,7 +107,6 @@ jobs:
       - name: Set date environment variable
         run: echo "date=$(date '+%Y-%m-%d-%H%M')" >> $GITHUB_ENV
 
-      # Free up disk space for large Docker builds
       - name: Free disk space
         run: |
           echo "Disk space before cleanup"
@@ -180,7 +142,6 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       
-      # ADD THIS STEP: Pull the base image explicitly
       - name: Pull base image
         run: |
           BASE_IMAGE="${{ vars.DOCKER_CONTAINER_SEMOSS }}/genai/cfg-ms-torch/${{ matrix.mode }}:latest"

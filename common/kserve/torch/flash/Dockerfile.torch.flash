@@ -1,0 +1,39 @@
+# ARG BASE_IMAGE=cfg-ms-base-flash:latest
+# FROM ${BASE_IMAGE}
+
+# WORKDIR /app
+
+# RUN poetry add \
+#     accelerate>=1.10.1 \
+#     paddleocr>=3.2.0 \
+#     transformers==4.56.1
+
+# RUN poetry install --no-interaction --no-ansi --no-root
+
+# COPY common/kserve/torch /app/kserve-torch/
+
+# RUN pip install -e /app/kserve-torch/
+
+# ENV HF_HOME="/app/.cache/huggingface"
+# ENV TRANSFORMERS_CACHE="/app/.cache/huggingface/transformers"
+
+# RUN mkdir -p ${HF_HOME} ${TRANSFORMERS_CACHE} && chmod -R 777 /app/.cache
+
+# RUN python -c "import kserve_torch; print(f'kserve_torch package found at {kserve_torch.__file__}')"
+# # RUN python -c "import flash_attn; print(f'flash-attention available: {flash_attn.__version__}')"
+# RUN python -c "import torch; print(f'PyTorch version: {torch.__version__}, CUDA available: {torch.cuda.is_available()}')"
+
+ARG BASE_IMAGE=cfg-ms-base-flash:latest
+FROM ${BASE_IMAGE}
+WORKDIR /app
+
+# Bring in the updated manifests produced outside Docker:
+COPY common/base/flash/pyproject.toml pyproject.toml
+COPY common/base/flash/poetry.lock   poetry.lock
+
+# Install exactly what’s in the lockfile; no upgrades.
+RUN poetry install --no-interaction --no-ansi --no-root --sync
+
+COPY common/kserve/torch /app/kserve-torch/
+RUN pip install -e /app/kserve-torch/ --no-deps
+RUN python -c "import torch, flash_attn; print(torch.__version__, flash_attn.__version__)"

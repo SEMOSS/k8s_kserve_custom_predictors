@@ -13,6 +13,9 @@ COPY models/image_embed/model.py ./model.py
 COPY common/kserve/torch /app/kserve-torch/
 RUN pip install -e /app/kserve-torch/
 
+
+RUN poetry add einops
+
 ENV MODEL_NAME=image-embedding
 ENV MODEL_ID=facebook/dinov2-large
 ENV POOLING_STRATEGY=cls

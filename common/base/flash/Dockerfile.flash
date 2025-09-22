@@ -1,0 +1,43 @@
+# FROM nvcr.io/nvidia/pytorch:24.12-py3 AS cfg-ms-base-gpu-flash
+
+# WORKDIR /app
+
+# ENV PYTHONFAULTHANDLER=1 \
+#     PYTHONUNBUFFERED=1 \
+#     PYTHONHASHSEED=random \
+#     PIP_NO_CACHE_DIR=off \
+#     PIP_DISABLE_PIP_VERSION_CHECK=on \
+#     PIP_DEFAULT_TIMEOUT=100 \
+#     PYTHONPATH="/app/src"
+
+# ENV POETRY_NO_INTERACTION=1 \
+#     POETRY_VIRTUALENVS_CREATE=false \
+#     POETRY_CACHE_DIR='/var/cache/pypoetry' \
+#     POETRY_HOME='/usr/local' \
+#     POETRY_VERSION=2.1.1
+
+# RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# COPY common/base/flash/pyproject.toml ./pyproject.toml
+
+# RUN poetry install --no-interaction --no-ansi --no-root
+
+# RUN python -c "import flash_attn; print(f'flash-attention version: {flash_attn.__version__}')"
+
+FROM nvcr.io/nvidia/pytorch:24.12-py3 AS cfg-ms-base-gpu-flash
+WORKDIR /app
+
+ENV POETRY_VERSION=2.1.1 \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_HOME=/opt/poetry \
+    PATH="/opt/poetry/bin:${PATH}"
+
+RUN curl -sSL https://install.python-poetry.org | python3 - \
+ && ln -s /opt/poetry/bin/poetry /usr/local/bin/poetry
+
+COPY common/base/flash/pyproject.toml pyproject.toml
+COPY common/base/flash/poetry.lock   poetry.lock
+
+RUN poetry --version
+RUN poetry install --no-interaction --no-ansi --no-root --sync
+RUN python -c "import torch, flash_attn; print(torch.__version__, flash_attn.__version__)"

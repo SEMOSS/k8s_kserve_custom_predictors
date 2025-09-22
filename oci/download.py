@@ -3,9 +3,9 @@ from huggingface_hub import snapshot_download
 
 def download_model_files():
 
-    model_repo_id = "microsoft/Florence-2-large"
+    model_repo_id = "nomic-ai/nomic-embed-vision-v1.5"
 
-    short_name = "florence-2-large"
+    short_name = "nomic-ai-vision-embed-v1-5"
 
     local_model_dir = f"./oci/{short_name}"
 
