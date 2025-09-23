@@ -16,8 +16,8 @@ RUN pip install -e /app/kserve-torch/
 
 RUN poetry add einops
 
-ENV MODEL_NAME=image-embedding
 ENV MODEL_ID=facebook/dinov2-large
+ENV MODEL_NAME=image-embedding
 ENV POOLING_STRATEGY=cls
 ENV NORMALIZE_EMBEDDINGS=true
 ENV PYTHONUNBUFFERED=1

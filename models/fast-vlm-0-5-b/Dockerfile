@@ -25,8 +25,9 @@ RUN poetry add \
     torchvision==0.21.0 \
     backoff==2.2.1 \
     peft==0.13.2 \
+    requests \
     timm \
-    requests
+
 
 # Reinstall the kserve_torch package to ensure it's available
 COPY common/kserve/torch /app/kserve-torch/
