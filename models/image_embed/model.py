@@ -6,7 +6,6 @@ from PIL import Image
 import torch
 from transformers import AutoImageProcessor, AutoModel
 from kserve import InferRequest, InferOutput
-
 from kserve_torch import BaseTorchModel  # type: ignore
 
 
