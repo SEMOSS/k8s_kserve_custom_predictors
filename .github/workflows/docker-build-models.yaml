@@ -68,7 +68,8 @@ jobs:
           
           # Create the matrix JSON
           if [ ${#MODELS[@]} -eq 0 ]; then
-            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            # Create a dummy matrix entry to satisfy GitHub Actions requirements
+            echo "matrix={\"include\":[{\"model\":\"none\",\"mode\":\"none\"}]}" >> $GITHUB_OUTPUT
             echo "has_models=false" >> $GITHUB_OUTPUT
             echo "No model directories found or specified."
           else
@@ -106,7 +107,7 @@ jobs:
         if: ${{ needs.detect_changes.outputs.has_models == 'false' }}
         run: |
           echo "No models to build. Pipeline completed successfully."
-          exit 0
+          echo "This job ran with a dummy matrix entry to satisfy GitHub Actions requirements."
       
       - name: Checkout code
         if: ${{ needs.detect_changes.outputs.has_models == 'true' }}
